@@ -127,3 +127,9 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Pytorch and pytorch lightning specific
+*.ckpt
+*.pth
+saved/
+data/
