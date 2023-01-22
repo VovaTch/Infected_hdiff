@@ -14,8 +14,8 @@ class MP3SliceDataset(Dataset):
     """
 
     def __init__(self, 
-                 sample_rate: int=4000,
-                 audio_dir: str="data/music_sample/", 
+                 sample_rate: int=44100,
+                 audio_dir: str="data/music_samples/", 
                  slice_length: float=5.0,
                  n_fft: int=1024,
                  hop_length: int=512,
@@ -30,7 +30,7 @@ class MP3SliceDataset(Dataset):
         self.n_fft = n_fft
         self.hop_length = hop_length
         self.n_melts_per_second = n_melts_per_second
-        self.num_samples = n_melts_per_second * slice_length
+        self.num_samples = int(n_melts_per_second * slice_length)
         
         # Initialize the transform
         self.mel_spec = T.MelSpectrogram(sample_rate = self.sample_rate,
@@ -42,7 +42,7 @@ class MP3SliceDataset(Dataset):
         file_list = []
         for file in os.listdir(self.audio_dir):
             if file.endswith("mp3"):
-                file_list.append(file)
+                file_list.append(os.path.join(self.audio_dir, file))
         music_slice_data = self._create_music_slices(file_list)
         self.processed_slice_data = self._mel_spec_transform(music_slice_data)     
         
@@ -72,7 +72,7 @@ class MP3SliceDataset(Dataset):
         
         music_slice_data_squeezed = music_slice_data.squeeze(0)
         processed_data = self.mel_spec(music_slice_data_squeezed)
-        
+        return processed_data
     
             
     def _resample_if_necessary(self, signal: torch.Tensor, sr: int):
@@ -90,10 +90,23 @@ class MP3SliceDataset(Dataset):
             
     def _right_pad_if_necessary(self, signal: torch.Tensor):
         length_signal = signal.shape[1]
-        if length_signal % self.num_samples != 0:
-            num_missing_samples = self.num_samples - length_signal % self.num_samples
-            num_missing_samples = self.num_samples - length_signal
+        if length_signal % self.sample_rate != 0:
+            num_missing_samples = self.sample_rate - length_signal % self.sample_rate
             last_dim_padding = (0, num_missing_samples)
             signal = F.pad(signal, last_dim_padding)
         return signal
         
+    def __getitem__(self, idx):
+        return self.processed_slice_data[idx]
+    
+    def __len__(self):
+        return self.processed_slice_data.shape[0]
+    
+    
+if __name__ == "__main__":
+    
+    dataset = MP3SliceDataset()
+    
+    sliced_piece = dataset[0]
+    
+    print(sliced_piece)
