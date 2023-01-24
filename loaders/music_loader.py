@@ -1,11 +1,13 @@
 import os
 from typing import List
+import tempfile
 
 import torch
 import torch.nn.functional as F
 import torchaudio
 import torchaudio.transforms as T
 from torch.utils.data import Dataset
+import tqdm
 
 
 class MP3SliceDataset(Dataset):
@@ -16,7 +18,7 @@ class MP3SliceDataset(Dataset):
     def __init__(self, 
                  sample_rate: int=44100,
                  audio_dir: str="data/music_samples/", 
-                 slice_length: float=5.0,
+                 slice_time: float=5.0,
                  n_fft: int=1024,
                  hop_length: int=512,
                  n_melts_per_second: int=64,
@@ -26,53 +28,38 @@ class MP3SliceDataset(Dataset):
         super().__init__()
         self.sample_rate = sample_rate
         self.audio_dir = audio_dir
-        self.slice_length = slice_length
+        self.slice_time = slice_time
         self.n_fft = n_fft
         self.hop_length = hop_length
         self.n_melts_per_second = n_melts_per_second
-        self.num_samples = int(n_melts_per_second * slice_length)
+        self.num_samples = int(n_melts_per_second * slice_time)
         
-        # Initialize the transform
-        self.mel_spec = T.MelSpectrogram(sample_rate = self.sample_rate,
-                                         n_fft = self.n_fft,
-                                         hop_length = self.hop_length,
-                                         n_mels = self.num_samples)
+        # Important: total samples in a slice
+        self.total_samples_per_slice = int(self.sample_rate * self.slice_time)
         
         # Create a file list
         file_list = []
         for file in os.listdir(self.audio_dir):
             if file.endswith("mp3"):
                 file_list.append(os.path.join(self.audio_dir, file))
-        music_slice_data = self._create_music_slices(file_list)
-        self.processed_slice_data = self._mel_spec_transform(music_slice_data)     
-        
+        self.processed_slice_data = self._create_music_slices(file_list).squeeze(0)
         
     def _create_music_slices(self, file_list: List[str]):
         """
         Private method to create music slices of 5 seconds from mp3 files.
         """
         
-        total_slices = torch.zeros((1, 0, self.sample_rate))
+        total_slices = torch.zeros((1, 0, self.total_samples_per_slice))
         
-        for file in file_list:
+        for file in tqdm.tqdm(file_list):
             long_data, sr = torchaudio.load(file, format="mp3")
             long_data = self._resample_if_necessary(long_data, sr)
             long_data = self._mix_down_if_necessary(long_data)
             long_data = self._right_pad_if_necessary(long_data)
-            slices = long_data.view((1, -1, self.sample_rate))
+            slices = long_data.view((1, -1, self.total_samples_per_slice))
             total_slices = torch.cat((total_slices, slices), dim=1)
             
         return total_slices
-            
-    
-    def _mel_spec_transform(self, music_slice_data: torch.Tensor):
-        """
-        Private method for applying Mel Spec. to all slices
-        """
-        
-        music_slice_data_squeezed = music_slice_data.squeeze(0)
-        processed_data = self.mel_spec(music_slice_data_squeezed)
-        return processed_data
     
             
     def _resample_if_necessary(self, signal: torch.Tensor, sr: int):
@@ -90,8 +77,8 @@ class MP3SliceDataset(Dataset):
             
     def _right_pad_if_necessary(self, signal: torch.Tensor):
         length_signal = signal.shape[1]
-        if length_signal % self.sample_rate != 0:
-            num_missing_samples = self.sample_rate - length_signal % self.sample_rate
+        if length_signal % self.total_samples_per_slice != 0:
+            num_missing_samples = self.total_samples_per_slice - length_signal % self.total_samples_per_slice
             last_dim_padding = (0, num_missing_samples)
             signal = F.pad(signal, last_dim_padding)
         return signal
@@ -102,11 +89,23 @@ class MP3SliceDataset(Dataset):
     def __len__(self):
         return self.processed_slice_data.shape[0]
     
+def inspect_file(path):
+    print("-" * 10)
+    print("Source:", path)
+    print("-" * 10)
+    print(f" - File size: {os.path.getsize(path)} bytes")
+    print(f" - {torchaudio.info(path)}")
+    print()
     
 if __name__ == "__main__":
     
     dataset = MP3SliceDataset()
     
     sliced_piece = dataset[0]
+    sliced_piece = sliced_piece.unsqueeze(0)
+    print(sliced_piece.size())
     
-    print(sliced_piece)
+    with tempfile.TemporaryDirectory() as tempdir:
+        path = f"save_example_default.mp3"
+        torchaudio.save(path, sliced_piece, 44100, format="mp3")
+        inspect_file(path)
