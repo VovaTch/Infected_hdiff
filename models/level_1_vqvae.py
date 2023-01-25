@@ -2,8 +2,10 @@ from typing import Any, List
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import pytorch_lightning as pl
 
+from .vq_codebook import VQCodebook
 
 class ConvBlock1D(nn.Module):
     """
@@ -37,7 +39,6 @@ class Lvl1Encoder(nn.Module):
         super().__init__()
         assert len(channel_list) == len(dim_change_list) + 1, "The channel list length must be greater than the dimension change list by 1"
         self.last_dim = channel_list[-1]
-        channel_list[-1] *= 2
         
         # Create the module lists for the architecture
         self.conv_list = nn.ModuleList(
@@ -52,14 +53,8 @@ class Lvl1Encoder(nn.Module):
         for conv, dim_change in zip(self.conv_list, self.dim_change_list):
             x = conv(x)
             x = dim_change(x)
-            
-        mu = x[:, :self.last_dim, :] # BS x C x W
-        sigma = x[:, self.last_dim:, :]
         
-        z = torch.randn_like(mu) * sigma + mu
-        self.kl_div = (sigma**2 + mu**2 - torch.log(sigma) - 1).sum()
-        
-        return z
+        return x
     
 
 class Lvl1Decoder(nn.Module):
@@ -88,9 +83,31 @@ class Lvl1Decoder(nn.Module):
         return z
 
 
-class Lvl1AutoEncoder(pl.LightningModule):
+class Lvl1VQ(nn.Module):
+    
+    def __init__(self, token_dim, num_tokens: int=512):
+        
+        super().__init__()
+        self.vq_codebook = VQCodebook(token_dim, num_tokens=num_tokens)
+        
+    def forward(self, z_e, extract_losses: bool=False):
+        
+        indices = self.vq_codebook.extract_indices(z_e)
+        z_q = self.vq_codebook(indices)
+        output = {'indices': indices, 'v_q': z_q}
+        
+        if extract_losses:
+            losses = {'alignment_loss': (z_e.detach() - z_q) ** 2,
+                      'commitment_loss': (z_e - z_q.detach()) ** 2}
+            output.update(losses)
+            
+        return output
+        
+
+
+class Lvl1VQVariationalAutoEncoder(pl.LightningModule):
     """
-    (VQ later?) VAE that takes a music sample and converts it into latent space, hopefully faithfully reconstructing it later.
+    VQ VAE that takes a music sample and converts it into latent space, hopefully faithfully reconstructing it later.
     This latent space is then used for the lowest level sample generation in a DiT like fashion.
     """
     
@@ -118,14 +135,30 @@ class Lvl1AutoEncoder(pl.LightningModule):
         encoder_channel_list = [hidden_size, hidden_size * 2, hidden_size * 4, hidden_size * 8, hidden_size * 16, latent_depth]
         encoder_dim_changes = [5, 5, 5, 5, 5]
         decoder_channel_list = encoder_channel_list.reverse()
-        decoder_dim_change = [5, 5, 5, 5, 5]
+        decoder_dim_changes = [5, 5, 5, 5, 5]
         
+        # Initialize network parts
+        self.encoder = Lvl1Encoder(encoder_channel_list, encoder_dim_changes)
+        self.decoder = Lvl1Decoder(decoder_channel_list, decoder_dim_changes)
+        self.vq_module = Lvl1VQ(latent_depth)
         
-    def forward(self, x):
-        pass
+    def forward(self, x, extract_losses: bool=False):
+        
+        z_e = self.encoder(x)
+        vq_block_output = self.vq_module(z_e)
+        x_out = self.decoder(vq_block_output['v_q'])
+        
+        total_output = {**vq_block_output,
+                        'output': x_out}
+        
+        if extract_losses:
+            total_output.update({'reconstruction_loss': F.mse_loss(x, x_out)})
+        
+        return total_output
+    
     
     
 if __name__ == "__main__":
     
-    vae = Lvl1AutoEncoder(44100, 5.0, 64, 16, 0.001, 0.01)
+    vae = Lvl1VQVariationalAutoEncoder(44100, 5.0, 64, 16, 0.001, 0.01)
     
