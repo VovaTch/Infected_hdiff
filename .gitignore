@@ -132,4 +132,5 @@ dmypy.json
 *.ckpt
 *.pth
 saved/
+model_weights/
 data/

@@ -22,7 +22,8 @@ class MP3SliceDataset(Dataset):
                  n_fft: int=1024,
                  hop_length: int=512,
                  n_melts_per_second: int=64,
-                 device: str="cpu"):
+                 device: str="cpu",
+                 **kwargs):
         
         # Initialize the object variables
         super().__init__()

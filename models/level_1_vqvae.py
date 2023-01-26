@@ -3,9 +3,13 @@ from typing import Any, List
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.utils.data import random_split, DataLoader
 import pytorch_lightning as pl
 
 from .vq_codebook import VQCodebook
+import loaders
+
+DATASETS = {'music_slice_dataset': loaders.MP3SliceDataset}
 
 class ConvBlock1D(nn.Module):
     """
@@ -22,6 +26,7 @@ class ConvBlock1D(nn.Module):
             nn.GELU(),
             nn.BatchNorm1d(out_channels),
         )
+           
             
     def forward(self, x):
         return self.architecture(x)
@@ -33,6 +38,7 @@ class Lvl1Encoder(nn.Module):
     """
     Encoder class for the level 1 auto-encoder, this is constructed in a VAE manner.
     """
+    
     
     def __init__(self, channel_list: List[int], dim_change_list: List[int]):
         
@@ -48,6 +54,7 @@ class Lvl1Encoder(nn.Module):
             [nn.MaxPool1d(dim_change_param) for dim_change_param in dim_change_list]
         )
         
+        
     def forward(self, x):
         
         for conv, dim_change in zip(self.conv_list, self.dim_change_list):
@@ -58,6 +65,7 @@ class Lvl1Encoder(nn.Module):
     
 
 class Lvl1Decoder(nn.Module):
+    
     
     def __init__(self, channel_list: List[int], dim_change_list: List[int]):
         
@@ -74,6 +82,7 @@ class Lvl1Decoder(nn.Module):
              for idx in range(len(dim_change_list))]
         )
         
+        
     def forward(self, z):
         
         for conv, dim_change in zip(self.conv_list, self.dim_change_list):
@@ -85,10 +94,12 @@ class Lvl1Decoder(nn.Module):
 
 class Lvl1VQ(nn.Module):
     
+    
     def __init__(self, token_dim, num_tokens: int=512):
         
         super().__init__()
         self.vq_codebook = VQCodebook(token_dim, num_tokens=num_tokens)
+        
         
     def forward(self, z_e, extract_losses: bool=False):
         
@@ -118,6 +129,11 @@ class Lvl1VQVariationalAutoEncoder(pl.LightningModule):
                  latent_depth: int,
                  learning_rate: float,
                  weight_decay: float,
+                 batch_size: int,
+                 epochs: int,
+                 dataset_name: str='music_slice_dataset',
+                 optimizer_name: str='one_cycle_lr',
+                 eval_split_factor: float=0.1,
                  **kwargs):
         
         super().__init__()
@@ -130,6 +146,8 @@ class Lvl1VQVariationalAutoEncoder(pl.LightningModule):
         self.latent_depth = latent_depth
         self.learning_rate = learning_rate
         self.weight_decay = weight_decay
+        self.batch_size = batch_size
+        self.epochs = epochs
         
         # Encoder parameter initialization
         encoder_channel_list = [hidden_size, hidden_size * 2, hidden_size * 4, hidden_size * 8, hidden_size * 16, latent_depth]
@@ -141,6 +159,19 @@ class Lvl1VQVariationalAutoEncoder(pl.LightningModule):
         self.encoder = Lvl1Encoder(encoder_channel_list, encoder_dim_changes)
         self.decoder = Lvl1Decoder(decoder_channel_list, decoder_dim_changes)
         self.vq_module = Lvl1VQ(latent_depth)
+        
+        # Datasets
+        assert dataset_name in DATASETS, f'Dataset {dataset_name} is not in the datasets options.'
+        assert 0 <= eval_split_factor <= 1, f'The split factor must be between 0 and 1, current value is {eval_split_factor}'
+        self.dataset = DATASETS[dataset_name](**kwargs)
+        train_dataset_length = int(len(self.dataset) * (1 - eval_split_factor))
+        self.train_dataset, self.eval_dataset = random_split(self.dataset, 
+                                                             (train_dataset_length, 
+                                                              len(self.dataset) - train_dataset_length))
+        
+        # Optimizers
+        assert optimizer_name in ['none', 'one_cycle_lr', 'reduce_on_platou'] # TODO fix typo, program the schedulers in
+        
         
     def forward(self, x, extract_losses: bool=False):
         
@@ -155,6 +186,36 @@ class Lvl1VQVariationalAutoEncoder(pl.LightningModule):
             total_output.update({'reconstruction_loss': F.mse_loss(x, x_out)})
         
         return total_output
+    
+    
+    def train_dataloader(self):
+        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True)
+    
+    
+    def val_dataloader(self):
+        return DataLoader(self.eval_dataset, batch_size=self.batch_size, shuffle=True)
+    
+    
+    def configure_optimizers(self):
+        
+        if len(self.dataset) % self.batch_size == 0:
+            total_steps = len(self.dataset) // self.batch_size
+        else:
+            total_steps = len(self.dataset) // self.batch_size + 1
+        
+        optimizer = torch.optim.AdamW(self.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
+        scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=self.learning_rate, 
+                                                        epochs=self.epochs,
+                                                        steps_per_epoch=total_steps)
+        return [optimizer], [scheduler]
+    
+    
+    def training_step(self, batch, batch_idx):
+        pass
+    
+    
+    def validation_step(self, batch, batch_idx):
+        pass
     
     
     
