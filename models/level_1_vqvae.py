@@ -131,6 +131,7 @@ class Lvl1VQVariationalAutoEncoder(pl.LightningModule):
                  weight_decay: float,
                  batch_size: int,
                  epochs: int,
+                 beta_factor: float=0.5,
                  dataset_name: str='music_slice_dataset',
                  optimizer_name: str='one_cycle_lr',
                  eval_split_factor: float=0.1,
@@ -148,6 +149,7 @@ class Lvl1VQVariationalAutoEncoder(pl.LightningModule):
         self.weight_decay = weight_decay
         self.batch_size = batch_size
         self.epochs = epochs
+        self.beta_factor = beta_factor
         
         # Encoder parameter initialization
         encoder_channel_list = [hidden_size, hidden_size * 2, hidden_size * 4, hidden_size * 8, hidden_size * 16, latent_depth]
@@ -176,7 +178,7 @@ class Lvl1VQVariationalAutoEncoder(pl.LightningModule):
     def forward(self, x, extract_losses: bool=False):
         
         z_e = self.encoder(x)
-        vq_block_output = self.vq_module(z_e)
+        vq_block_output = self.vq_module(z_e, extract_losses=True)
         x_out = self.decoder(vq_block_output['v_q'])
         
         total_output = {**vq_block_output,
@@ -211,11 +213,31 @@ class Lvl1VQVariationalAutoEncoder(pl.LightningModule):
     
     
     def training_step(self, batch, batch_idx):
-        pass
+        
+        total_output = self.forward(batch, extract_losses=True)
+        total_loss = total_output['reconstruction_loss'] + total_output['alignment_loss'] +\
+            self.beta_factor * total_output['commitment_loss']
+            
+        for key, value in total_output.items():
+            if 'loss' in key.split('_'):
+                displayed_key = key.replace('_', ' ')
+                self.log(f'Training {displayed_key}', value)
+        self.log('Training total loss', total_loss)
+        
+        return total_loss
     
     
     def validation_step(self, batch, batch_idx):
-        pass
+        
+        total_output = self.forward(batch, extract_losses=True)
+        total_loss = total_output['reconstruction_loss'] + total_output['alignment_loss'] +\
+            self.beta_factor * total_output['commitment_loss']
+            
+        for key, value in total_output.items():
+            if 'loss' in key.split('_'):
+                displayed_key = key.replace('_', ' ')
+                self.log(f'Validation {displayed_key}', value)
+        self.log('Validation total loss', total_loss)
     
     
     
