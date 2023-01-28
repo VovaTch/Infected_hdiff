@@ -1,1 +1,1 @@
-from music_loader import *
+from .music_loader import *

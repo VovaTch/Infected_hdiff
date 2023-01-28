@@ -52,7 +52,7 @@ class MP3SliceDataset(Dataset):
         
         total_slices = torch.zeros((1, 0, self.total_samples_per_slice))
         
-        for file in tqdm.tqdm(file_list):
+        for file in tqdm.tqdm(file_list, desc='Loading music slices...'):
             long_data, sr = torchaudio.load(file, format="mp3")
             long_data = self._resample_if_necessary(long_data, sr)
             long_data = self._mix_down_if_necessary(long_data)
@@ -85,7 +85,7 @@ class MP3SliceDataset(Dataset):
         return signal
         
     def __getitem__(self, idx):
-        return self.processed_slice_data[idx]
+        return {'music slice': self.processed_slice_data[idx].unsqueeze(0)}
     
     def __len__(self):
         return self.processed_slice_data.shape[0]

@@ -19,10 +19,10 @@ class ConvBlock1D(nn.Module):
     def __init__(self, in_channels: int, out_channels: int, kernel_size: int):
         super().__init__()
         self.architecture = nn.Sequential(
-            nn.Conv1d(in_channels, out_channels, kernel_size=kernel_size, padding=kernel_size // 2 - 1),
+            nn.Conv1d(in_channels, out_channels, kernel_size=kernel_size, padding=kernel_size // 2),
             nn.GELU(),
             nn.BatchNorm1d(out_channels),
-            nn.Conv1d(out_channels, out_channels, kernel_size=kernel_size, padding=kernel_size // 2 - 1),
+            nn.Conv1d(out_channels, out_channels, kernel_size=kernel_size, padding=kernel_size // 2),
             nn.GELU(),
             nn.BatchNorm1d(out_channels),
         )
@@ -40,13 +40,14 @@ class Lvl1Encoder(nn.Module):
     """
     
     
-    def __init__(self, channel_list: List[int], dim_change_list: List[int]):
+    def __init__(self, channel_list: List[int], dim_change_list: List[int], input_channels: int=1):
         
         super().__init__()
         assert len(channel_list) == len(dim_change_list) + 1, "The channel list length must be greater than the dimension change list by 1"
         self.last_dim = channel_list[-1]
         
         # Create the module lists for the architecture
+        self.init_conv = nn.Conv1d(input_channels, channel_list[0], kernel_size=3, padding=1)
         self.conv_list = nn.ModuleList(
             [ConvBlock1D(channel_list[idx], channel_list[idx + 1], 5) for idx in range(len(dim_change_list))]
         )
@@ -56,6 +57,8 @@ class Lvl1Encoder(nn.Module):
         
         
     def forward(self, x):
+        
+        x = self.init_conv(x)
         
         for conv, dim_change in zip(self.conv_list, self.dim_change_list):
             x = conv(x)
@@ -67,12 +70,13 @@ class Lvl1Encoder(nn.Module):
 class Lvl1Decoder(nn.Module):
     
     
-    def __init__(self, channel_list: List[int], dim_change_list: List[int]):
+    def __init__(self, channel_list: List[int], dim_change_list: List[int], input_channels: int=1):
         
         super().__init__()
         assert len(channel_list) == len(dim_change_list) + 1, "The channel list length must be greater than the dimension change list by 1"
         
         # Create the module lists for the architecture
+        self.end_conv = nn.Conv1d(channel_list[-1], input_channels, kernel_size=3, padding=1)
         self.conv_list = nn.ModuleList(
             [ConvBlock1D(channel_list[idx], channel_list[idx + 1], 5) for idx in range(len(dim_change_list))]
         )
@@ -89,7 +93,9 @@ class Lvl1Decoder(nn.Module):
             z = conv(z)
             z = dim_change(z)
             
-        return z
+        x_out = self.end_conv(z)
+            
+        return x_out
 
 
 class Lvl1VQ(nn.Module):
@@ -104,12 +110,12 @@ class Lvl1VQ(nn.Module):
     def forward(self, z_e, extract_losses: bool=False):
         
         indices = self.vq_codebook.extract_indices(z_e)
-        z_q = self.vq_codebook(indices)
+        z_q = self.vq_codebook.apply_codebook(indices).transpose(1, 2)
         output = {'indices': indices, 'v_q': z_q}
         
         if extract_losses:
-            losses = {'alignment_loss': (z_e.detach() - z_q) ** 2,
-                      'commitment_loss': (z_e - z_q.detach()) ** 2}
+            losses = {'alignment_loss': ((z_e.detach() - z_q) ** 2).sum(),
+                      'commitment_loss': ((z_e - z_q.detach()) ** 2).sum()}
             output.update(losses)
             
         return output
@@ -153,9 +159,9 @@ class Lvl1VQVariationalAutoEncoder(pl.LightningModule):
         
         # Encoder parameter initialization
         encoder_channel_list = [hidden_size, hidden_size * 2, hidden_size * 4, hidden_size * 8, hidden_size * 16, latent_depth]
-        encoder_dim_changes = [5, 5, 5, 5, 5]
-        decoder_channel_list = encoder_channel_list.reverse()
-        decoder_dim_changes = [5, 5, 5, 5, 5]
+        encoder_dim_changes = [5, 5, 5, 4, 3]
+        decoder_channel_list = list(reversed(encoder_channel_list))
+        decoder_dim_changes = [3, 4, 5, 5, 5]
         
         # Initialize network parts
         self.encoder = Lvl1Encoder(encoder_channel_list, encoder_dim_changes)
@@ -185,7 +191,7 @@ class Lvl1VQVariationalAutoEncoder(pl.LightningModule):
                         'output': x_out}
         
         if extract_losses:
-            total_output.update({'reconstruction_loss': F.mse_loss(x, x_out)})
+            total_output.update({'reconstruction_loss': F.mse_loss(x, x_out, reduction='sum')})
         
         return total_output
     
@@ -195,7 +201,7 @@ class Lvl1VQVariationalAutoEncoder(pl.LightningModule):
     
     
     def val_dataloader(self):
-        return DataLoader(self.eval_dataset, batch_size=self.batch_size, shuffle=True)
+        return DataLoader(self.eval_dataset, batch_size=self.batch_size, shuffle=False)
     
     
     def configure_optimizers(self):
@@ -214,7 +220,8 @@ class Lvl1VQVariationalAutoEncoder(pl.LightningModule):
     
     def training_step(self, batch, batch_idx):
         
-        total_output = self.forward(batch, extract_losses=True)
+        music_slice = batch['music slice']
+        total_output = self.forward(music_slice, extract_losses=True)
         total_loss = total_output['reconstruction_loss'] + total_output['alignment_loss'] +\
             self.beta_factor * total_output['commitment_loss']
             
@@ -229,7 +236,8 @@ class Lvl1VQVariationalAutoEncoder(pl.LightningModule):
     
     def validation_step(self, batch, batch_idx):
         
-        total_output = self.forward(batch, extract_losses=True)
+        music_slice = batch['music slice']
+        total_output = self.forward(music_slice, extract_losses=True)
         total_loss = total_output['reconstruction_loss'] + total_output['alignment_loss'] +\
             self.beta_factor * total_output['commitment_loss']
             

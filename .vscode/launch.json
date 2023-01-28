@@ -21,5 +21,24 @@
             "console": "integratedTerminal",
             "justMyCode": true
         },
+
+        {
+            "name": "Python: Train VQVAE lvl 1",
+            "type": "python",
+            "request": "launch",
+            "module": "scripts.train",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": ["-d", "0", "-a", "lvl1vqvae"]
+        },
+
+        {
+            "name": "Python: Test",
+            "type": "python",
+            "request": "launch",
+            "module": "unittest",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
     ]
 }
