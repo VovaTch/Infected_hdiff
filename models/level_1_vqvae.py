@@ -95,7 +95,7 @@ class Lvl1Decoder(nn.Module):
             
         x_out = self.end_conv(z)
             
-        return x_out
+        return F.tanh(x_out)
 
 
 class Lvl1VQ(nn.Module):
@@ -107,15 +107,16 @@ class Lvl1VQ(nn.Module):
         self.vq_codebook = VQCodebook(token_dim, num_tokens=num_tokens)
         
         
-    def forward(self, z_e, extract_losses: bool=False):
+    def forward(self, z_e: torch.Tensor, extract_losses: bool=False):
         
-        indices = self.vq_codebook.extract_indices(z_e)
-        z_q = self.vq_codebook.apply_codebook(indices).transpose(1, 2)
+        z_q, indices = self.vq_codebook.apply_codebook(z_e, code_sg=True)
         output = {'indices': indices, 'v_q': z_q}
         
         if extract_losses:
-            losses = {'alignment_loss': ((z_e.detach() - z_q) ** 2).sum(),
-                      'commitment_loss': ((z_e - z_q.detach()) ** 2).sum()}
+            emb, _ = self.vq_codebook.apply_codebook(z_e.detach())
+            output.update({'v_q_detached': emb})
+            losses = {'alignment_loss': torch.mean(torch.norm((emb - z_e.detach())**2, 2, 1)),
+                      'commitment_loss': torch.mean(torch.norm((emb.detach() - z_e)**2, 2, 1))}
             output.update(losses)
             
         return output
@@ -159,9 +160,9 @@ class Lvl1VQVariationalAutoEncoder(pl.LightningModule):
         
         # Encoder parameter initialization
         encoder_channel_list = [hidden_size, hidden_size * 2, hidden_size * 4, hidden_size * 8, hidden_size * 16, latent_depth]
-        encoder_dim_changes = [5, 5, 5, 4, 3]
+        encoder_dim_changes = [3, 4, 5, 5, 5]
         decoder_channel_list = list(reversed(encoder_channel_list))
-        decoder_dim_changes = [3, 4, 5, 5, 5]
+        decoder_dim_changes = [5, 5, 5, 4, 3]
         
         # Initialize network parts
         self.encoder = Lvl1Encoder(encoder_channel_list, encoder_dim_changes)
@@ -191,7 +192,7 @@ class Lvl1VQVariationalAutoEncoder(pl.LightningModule):
                         'output': x_out}
         
         if extract_losses:
-            total_output.update({'reconstruction_loss': F.mse_loss(x, x_out, reduction='sum')})
+            total_output.update({'reconstruction_loss': F.mse_loss(x, x_out)})
         
         return total_output
     
@@ -211,11 +212,17 @@ class Lvl1VQVariationalAutoEncoder(pl.LightningModule):
         else:
             total_steps = len(self.dataset) // self.batch_size + 1
         
-        optimizer = torch.optim.AdamW(self.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)#, weight_decay=self.weight_decay)
         scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=self.learning_rate, 
                                                         epochs=self.epochs,
                                                         steps_per_epoch=total_steps)
-        return [optimizer], [scheduler]
+        # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=1e6)
+        scheduler_settings= {'scheduler': scheduler,
+                             'interval': 'step',
+                             'monitor': 'Training reconstruction loss',
+                             'frequency': 1} # Set the scheduler to step every batch
+        
+        return [optimizer], [scheduler_settings]
     
     
     def training_step(self, batch, batch_idx):

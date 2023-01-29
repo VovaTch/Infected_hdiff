@@ -2,16 +2,16 @@ model:
   name: vqvae_lvl_1
   sample_rate: 44100
   slice_length: 5.0
-  hidden_size: 16
+  hidden_size: 48
   latent_width: 128
   latent_depth: 16
   beta_factor: 0.5
 
 learning:
-  batch_size: 2
+  batch_size: 4
   learning_rate: 0.001
   weight_decay: 0.01
-  epochs: 3000
+  epochs: 700
   gradient_clip: 0.5
   beta_ema: 0.9999
   monitored_loss: Validation total loss

@@ -1,8 +1,5 @@
 import argparse
 
-import torch
-import pytorch_lightning as pl
-
 from models.level_1_vqvae import Lvl1VQVariationalAutoEncoder
 from utils.other import load_cfg_dict, initialize_trainer
 
@@ -13,7 +10,7 @@ def train_lvl_1_encoder(args):
     cfg = load_cfg_dict(config_path)
     model = Lvl1VQVariationalAutoEncoder(**cfg)
     if args.resume is not None:
-        model.load_from_checkpoint(args.resume, **cfg)
+        model = model.load_from_checkpoint(args.resume, **cfg)
         
     # Initialize trainer
     trainer = initialize_trainer(cfg, num_devices=args.num_devices)

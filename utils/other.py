@@ -1,6 +1,6 @@
 import yaml
 import pytorch_lightning as pl
-from pytorch_lightning.callbacks import ModelCheckpoint, ModelSummary
+from pytorch_lightning.callbacks import ModelCheckpoint, ModelSummary, LearningRateMonitor
 from pytorch_lightning.loggers import TensorBoardLogger
 
 from .ema import EMA
@@ -21,6 +21,7 @@ def initialize_trainer(cfg, num_devices: int=0) -> pl.Trainer:
     
     # Configure trainer
     ema = EMA(cfg['beta_ema'])
+    learning_rate_monitor = LearningRateMonitor(logging_interval='step')
     logger = TensorBoardLogger(name=cfg['name'], save_dir='saved/')
     model_checkpoint_callback = ModelCheckpoint(save_last=True, 
                                                 save_weights_only=True, 
@@ -29,7 +30,7 @@ def initialize_trainer(cfg, num_devices: int=0) -> pl.Trainer:
     model_summary = ModelSummary(max_depth=3)
     trainer = pl.Trainer(gradient_clip_val=cfg['gradient_clip'],
                          logger=logger,
-                         callbacks=[ema, model_checkpoint_callback, model_summary],
+                         callbacks=[model_checkpoint_callback, model_summary, learning_rate_monitor],
                          devices=num_devices,
                          max_epochs=cfg['epochs'],
                          log_every_n_steps=1,
@@ -37,3 +38,4 @@ def initialize_trainer(cfg, num_devices: int=0) -> pl.Trainer:
                          accelerator=accelerator)
     
     return trainer
+

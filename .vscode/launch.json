@@ -33,6 +33,16 @@
         },
 
         {
+            "name": "Python: Train VQVAE lvl 1 through pretrained",
+            "type": "python",
+            "request": "launch",
+            "module": "scripts.train",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": ["-d", "1", "-a", "lvl1vqvae", "-r", "model_best.ckpt"]
+        },
+
+        {
             "name": "Python: Test",
             "type": "python",
             "request": "launch",
