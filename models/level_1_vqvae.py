@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import random_split, DataLoader
 import pytorch_lightning as pl
+from ripple_linear_py import RippleLinear
 
 from .vq_codebook import VQCodebook
 import loaders
