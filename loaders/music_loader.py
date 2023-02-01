@@ -1,6 +1,7 @@
 import os
 from typing import List
 import tempfile
+import random
 
 import torch
 import torch.nn.functional as F
@@ -23,6 +24,7 @@ class MP3SliceDataset(Dataset):
                  hop_length: int=512,
                  n_melts_per_second: int=64,
                  device: str="cpu",
+                 preload: bool=True,
                  **kwargs):
         
         # Initialize the object variables
@@ -34,16 +36,20 @@ class MP3SliceDataset(Dataset):
         self.hop_length = hop_length
         self.n_melts_per_second = n_melts_per_second
         self.num_samples = int(n_melts_per_second * slice_time)
+        self.preload = preload
+        self.device = device
         
         # Important: total samples in a slice
         self.total_samples_per_slice = int(self.sample_rate * self.slice_time)
         
         # Create a file list
-        file_list = []
+        self.processed_slice_data = None
+        self.file_list = []
         for file in os.listdir(self.audio_dir):
             if file.endswith("mp3"):
-                file_list.append(os.path.join(self.audio_dir, file))
-        self.processed_slice_data = self._create_music_slices(file_list).squeeze(0)
+                self.file_list.append(os.path.join(self.audio_dir, file))
+        if self.preload:
+            self.processed_slice_data = self._create_music_slices(self.file_list).squeeze(0).to(device)
         
     def _create_music_slices(self, file_list: List[str]):
         """
@@ -53,15 +59,22 @@ class MP3SliceDataset(Dataset):
         total_slices = torch.zeros((1, 0, self.total_samples_per_slice))
         
         for file in tqdm.tqdm(file_list, desc='Loading music slices...'):
-            long_data, sr = torchaudio.load(file, format="mp3")
-            long_data = self._resample_if_necessary(long_data, sr)
-            long_data = self._mix_down_if_necessary(long_data)
-            long_data = self._right_pad_if_necessary(long_data)
-            slices = long_data.view((1, -1, self.total_samples_per_slice))
+            slices = self._load_slices_from_track(file)
             total_slices = torch.cat((total_slices, slices), dim=1)
             
         return total_slices
-    
+            
+            
+    def _load_slices_from_track(self, file):
+        
+        long_data, sr = torchaudio.load(file, format="mp3")
+        long_data = self._resample_if_necessary(long_data, sr)
+        long_data = self._mix_down_if_necessary(long_data)
+        long_data = self._right_pad_if_necessary(long_data)
+        slices = long_data.view((1, -1, self.total_samples_per_slice))
+        
+        return slices
+
             
     def _resample_if_necessary(self, signal: torch.Tensor, sr: int):
         if sr != self.sample_rate:
@@ -85,10 +98,19 @@ class MP3SliceDataset(Dataset):
         return signal
         
     def __getitem__(self, idx):
-        return {'music slice': self.processed_slice_data[idx].unsqueeze(0)}
+        
+        if self.preload:
+            slice = self.processed_slice_data[idx]
+        else:
+            file_choice = random.choice(self.file_list)
+            slices = self._load_slices_from_track(file_choice).squeeze(0)
+            slice_choice = random.choice(list(range(0, slices.shape[0])))
+            slice = slices[slice_choice, ...]
+        
+        return {'music slice': slice.unsqueeze(0).to(self.device)}
     
     def __len__(self):
-        return self.processed_slice_data.shape[0]
+        return self.processed_slice_data.shape[0] if self.preload else 100
     
 def inspect_file(path):
     print("-" * 10)

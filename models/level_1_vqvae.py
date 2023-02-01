@@ -1,11 +1,11 @@
 from typing import Any, List
+import math
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import random_split, DataLoader
 import pytorch_lightning as pl
-from ripple_linear_py import RippleLinear
 
 from .vq_codebook import VQCodebook
 import loaders
@@ -31,7 +31,6 @@ class ConvBlock1D(nn.Module):
             
     def forward(self, x):
         return self.architecture(x)
-        
         
 
 
@@ -71,7 +70,7 @@ class Lvl1Encoder(nn.Module):
 class Lvl1Decoder(nn.Module):
     
     
-    def __init__(self, channel_list: List[int], dim_change_list: List[int], input_channels: int=1):
+    def __init__(self, channel_list: List[int], dim_change_list: List[int], input_channels: int=1, sin_locations: List[int]=None):
         
         super().__init__()
         assert len(channel_list) == len(dim_change_list) + 1, "The channel list length must be greater than the dimension change list by 1"
@@ -86,17 +85,24 @@ class Lvl1Decoder(nn.Module):
                                 kernel_size=dim_change_list[idx], stride=dim_change_list[idx])
              for idx in range(len(dim_change_list))]
         )
+        self.sin_locations = sin_locations
+
         
         
     def forward(self, z):
         
-        for conv, dim_change in zip(self.conv_list, self.dim_change_list):
+        for idx, (conv, dim_change) in enumerate(zip(self.conv_list, self.dim_change_list)):
             z = conv(z)
             z = dim_change(z)
             
+            # Trying to have a sinusoidal activation here for repetitive data
+            if self.sin_locations is not None:
+                if idx + 1 in self.sin_locations:
+                    z += torch.sin(z.clone())
+            
         x_out = self.end_conv(z)
             
-        return F.tanh(x_out)
+        return torch.tanh(x_out)
 
 
 class Lvl1VQ(nn.Module):
@@ -141,6 +147,7 @@ class Lvl1VQVariationalAutoEncoder(pl.LightningModule):
                  epochs: int,
                  beta_factor: float=0.5,
                  dataset_name: str='music_slice_dataset',
+                 dataset_path: str='data/music_samples',
                  optimizer_name: str='one_cycle_lr',
                  eval_split_factor: float=0.1,
                  **kwargs):
@@ -148,6 +155,7 @@ class Lvl1VQVariationalAutoEncoder(pl.LightningModule):
         super().__init__()
         
         # Parse arguments
+        self.cfg = kwargs
         self.sample_rate = sample_rate
         self.slice_length = slice_length
         self.samples_per_slice = int(sample_rate * slice_length)
@@ -158,26 +166,26 @@ class Lvl1VQVariationalAutoEncoder(pl.LightningModule):
         self.batch_size = batch_size
         self.epochs = epochs
         self.beta_factor = beta_factor
+        self.dataset_path = dataset_path
         
         # Encoder parameter initialization
         encoder_channel_list = [hidden_size, hidden_size * 2, hidden_size * 4, hidden_size * 8, hidden_size * 16, latent_depth]
         encoder_dim_changes = [3, 4, 5, 5, 5]
         decoder_channel_list = list(reversed(encoder_channel_list))
         decoder_dim_changes = [5, 5, 5, 4, 3]
+        sin_locations = None
         
         # Initialize network parts
         self.encoder = Lvl1Encoder(encoder_channel_list, encoder_dim_changes)
-        self.decoder = Lvl1Decoder(decoder_channel_list, decoder_dim_changes)
+        self.decoder = Lvl1Decoder(decoder_channel_list, decoder_dim_changes, sin_locations=sin_locations)
         self.vq_module = Lvl1VQ(latent_depth)
         
         # Datasets
         assert dataset_name in DATASETS, f'Dataset {dataset_name} is not in the datasets options.'
         assert 0 <= eval_split_factor <= 1, f'The split factor must be between 0 and 1, current value is {eval_split_factor}'
-        self.dataset = DATASETS[dataset_name](**kwargs)
-        train_dataset_length = int(len(self.dataset) * (1 - eval_split_factor))
-        self.train_dataset, self.eval_dataset = random_split(self.dataset, 
-                                                             (train_dataset_length, 
-                                                              len(self.dataset) - train_dataset_length))
+        self.dataset = None
+        self.eval_split_factor = eval_split_factor
+        self.dataset_name = dataset_name
         
         # Optimizers
         assert optimizer_name in ['none', 'one_cycle_lr', 'reduce_on_platou'] # TODO fix typo, program the schedulers in
@@ -199,15 +207,17 @@ class Lvl1VQVariationalAutoEncoder(pl.LightningModule):
     
     
     def train_dataloader(self):
+        self._set_dataset()
         return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True)
     
     
     def val_dataloader(self):
+        self._set_dataset()
         return DataLoader(self.eval_dataset, batch_size=self.batch_size, shuffle=False)
     
     
     def configure_optimizers(self):
-        
+        self._set_dataset()
         if len(self.dataset) % self.batch_size == 0:
             total_steps = len(self.dataset) // self.batch_size
         else:
@@ -254,7 +264,15 @@ class Lvl1VQVariationalAutoEncoder(pl.LightningModule):
                 displayed_key = key.replace('_', ' ')
                 self.log(f'Validation {displayed_key}', value)
         self.log('Validation total loss', total_loss)
-    
+        
+    def _set_dataset(self):
+        
+        if self.dataset is None:
+            self.dataset = DATASETS[self.dataset_name](**self.cfg)
+            train_dataset_length = int(len(self.dataset) * (1 - self.eval_split_factor))
+            self.train_dataset, self.eval_dataset = random_split(self.dataset, 
+                                                                (train_dataset_length, 
+                                                                len(self.dataset) - train_dataset_length))
     
     
 if __name__ == "__main__":

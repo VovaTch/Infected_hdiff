@@ -15,4 +15,5 @@ learning:
   gradient_clip: 0.5
   beta_ema: 0.9999
   monitored_loss: Validation total loss
+  dataset_path: data/music_samples/
   

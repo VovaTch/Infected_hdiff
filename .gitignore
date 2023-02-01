@@ -134,3 +134,4 @@ dmypy.json
 saved/
 model_weights/
 data/
+*.mp3

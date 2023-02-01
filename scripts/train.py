@@ -10,7 +10,7 @@ def train_lvl_1_encoder(args):
     cfg = load_cfg_dict(config_path)
     model = Lvl1VQVariationalAutoEncoder(**cfg)
     if args.resume is not None:
-        model = model.load_from_checkpoint(args.resume, **cfg)
+        model = model.load_from_checkpoint(args.resume, **cfg, strict=False)
         
     # Initialize trainer
     trainer = initialize_trainer(cfg, num_devices=args.num_devices)
