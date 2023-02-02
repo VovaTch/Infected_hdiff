@@ -108,7 +108,7 @@ class Lvl1Decoder(nn.Module):
 class Lvl1VQ(nn.Module):
     
     
-    def __init__(self, token_dim, num_tokens: int=512):
+    def __init__(self, token_dim, num_tokens: int=1024):
         
         super().__init__()
         self.vq_codebook = VQCodebook(token_dim, num_tokens=num_tokens)
@@ -170,9 +170,11 @@ class Lvl1VQVariationalAutoEncoder(pl.LightningModule):
         
         # Encoder parameter initialization
         encoder_channel_list = [hidden_size, hidden_size * 2, hidden_size * 4, hidden_size * 8, hidden_size * 16, latent_depth]
-        encoder_dim_changes = [3, 4, 5, 5, 5]
+        # encoder_dim_changes = [3, 4, 5, 5, 5] # [2, 2, 3, 3, 5] is possible, try next
+        encoder_dim_changes = [2, 2, 3, 3, 5]
         decoder_channel_list = list(reversed(encoder_channel_list))
-        decoder_dim_changes = [5, 5, 5, 4, 3]
+        # decoder_dim_changes = [5, 5, 5, 4, 3] # [5, 3, 3, 2, 2] is possible, try next
+        decoder_dim_changes = [5, 3, 3, 2, 2]
         sin_locations = None
         
         # Initialize network parts
@@ -268,7 +270,7 @@ class Lvl1VQVariationalAutoEncoder(pl.LightningModule):
     def _set_dataset(self):
         
         if self.dataset is None:
-            self.dataset = DATASETS[self.dataset_name](**self.cfg)
+            self.dataset = DATASETS[self.dataset_name](**self.cfg, audio_dir=self.cfg['dataset_path'])
             train_dataset_length = int(len(self.dataset) * (1 - self.eval_split_factor))
             self.train_dataset, self.eval_dataset = random_split(self.dataset, 
                                                                 (train_dataset_length, 
