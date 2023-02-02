@@ -9,6 +9,7 @@ import torchaudio
 import torchaudio.transforms as T
 from torch.utils.data import Dataset
 import tqdm
+import pickle
 
 
 class MP3SliceDataset(Dataset):
@@ -25,6 +26,7 @@ class MP3SliceDataset(Dataset):
                  n_melts_per_second: int=64,
                  device: str="cpu",
                  preload: bool=True,
+                 preload_file_path: str='data/music_samples/000-datatensor.pkl',
                  **kwargs):
         
         # Initialize the object variables
@@ -49,7 +51,20 @@ class MP3SliceDataset(Dataset):
             if file.endswith("mp3"):
                 self.file_list.append(os.path.join(self.audio_dir, file))
         if self.preload:
-            self.processed_slice_data = self._create_music_slices(self.file_list).squeeze(0).to(device)
+            
+            # Load pickle file if exists
+            if os.path.isfile(preload_file_path):
+                print(f'Loading file {preload_file_path}...')
+                with open(preload_file_path, 'rb') as f:
+                    self.processed_slice_data = pickle.load(f)
+                    print(f'Music file {preload_file_path} is loaded.')
+                
+            # Save pickle file if not
+            else:
+                self.processed_slice_data = self._create_music_slices(self.file_list).squeeze(0).to(device)
+                with open(preload_file_path, 'wb') as f:
+                    pickle.dump(self.processed_slice_data, f)
+                    print(f'Saved music file at {preload_file_path}')
         
     def _create_music_slices(self, file_list: List[str]):
         """
