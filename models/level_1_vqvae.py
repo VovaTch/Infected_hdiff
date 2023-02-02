@@ -270,7 +270,7 @@ class Lvl1VQVariationalAutoEncoder(pl.LightningModule):
     def _set_dataset(self):
         
         if self.dataset is None:
-            self.dataset = DATASETS[self.dataset_name](**self.cfg, audio_dir=self.cfg['dataset_path'])
+            self.dataset = DATASETS[self.dataset_name](**self.cfg, audio_dir=self.dataset_path)
             train_dataset_length = int(len(self.dataset) * (1 - self.eval_split_factor))
             self.train_dataset, self.eval_dataset = random_split(self.dataset, 
                                                                 (train_dataset_length, 
