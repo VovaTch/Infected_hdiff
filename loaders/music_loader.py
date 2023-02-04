@@ -52,6 +52,8 @@ class MP3SliceDataset(Dataset):
                 self.file_list.append(os.path.join(self.audio_dir, file))
         if self.preload:
             
+            # self.processed_slice_data = self._create_music_slices(self.file_list).squeeze(0).to(device)
+            
             # Load pickle file if exists
             if os.path.isfile(preload_file_path):
                 print(f'Loading file {preload_file_path}...')

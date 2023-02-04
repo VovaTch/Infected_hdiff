@@ -108,7 +108,7 @@ class Lvl1Decoder(nn.Module):
 class Lvl1VQ(nn.Module):
     
     
-    def __init__(self, token_dim, num_tokens: int=1024):
+    def __init__(self, token_dim, num_tokens: int=8192):
         
         super().__init__()
         self.vq_codebook = VQCodebook(token_dim, num_tokens=num_tokens)
@@ -146,10 +146,12 @@ class Lvl1VQVariationalAutoEncoder(pl.LightningModule):
                  batch_size: int,
                  epochs: int,
                  beta_factor: float=0.5,
+                 vocabulary_size: int=8192,
+                 channel_dim_change_list: List[int] = [2, 2, 2, 4, 4],
                  dataset_name: str='music_slice_dataset',
                  dataset_path: str='data/music_samples',
                  optimizer_name: str='one_cycle_lr',
-                 eval_split_factor: float=0.1,
+                 eval_split_factor: float=0.01,
                  **kwargs):
         
         super().__init__()
@@ -167,20 +169,19 @@ class Lvl1VQVariationalAutoEncoder(pl.LightningModule):
         self.epochs = epochs
         self.beta_factor = beta_factor
         self.dataset_path = dataset_path
+        self.vocabulary_size = vocabulary_size
         
         # Encoder parameter initialization
         encoder_channel_list = [hidden_size, hidden_size * 2, hidden_size * 4, hidden_size * 8, hidden_size * 16, latent_depth]
-        # encoder_dim_changes = [3, 4, 5, 5, 5] # [2, 2, 3, 3, 5] is possible, try next
-        encoder_dim_changes = [2, 2, 3, 3, 5]
+        encoder_dim_changes = channel_dim_change_list
         decoder_channel_list = list(reversed(encoder_channel_list))
-        # decoder_dim_changes = [5, 5, 5, 4, 3] # [5, 3, 3, 2, 2] is possible, try next
-        decoder_dim_changes = [5, 3, 3, 2, 2]
+        decoder_dim_changes = list(reversed(channel_dim_change_list))
         sin_locations = None
         
         # Initialize network parts
         self.encoder = Lvl1Encoder(encoder_channel_list, encoder_dim_changes)
         self.decoder = Lvl1Decoder(decoder_channel_list, decoder_dim_changes, sin_locations=sin_locations)
-        self.vq_module = Lvl1VQ(latent_depth)
+        self.vq_module = Lvl1VQ(latent_depth, num_tokens=vocabulary_size)
         
         # Datasets
         assert dataset_name in DATASETS, f'Dataset {dataset_name} is not in the datasets options.'
@@ -270,7 +271,7 @@ class Lvl1VQVariationalAutoEncoder(pl.LightningModule):
     def _set_dataset(self):
         
         if self.dataset is None:
-            self.dataset = DATASETS[self.dataset_name](**self.cfg, audio_dir=self.dataset_path)
+            self.dataset = DATASETS[self.dataset_name](**self.cfg, audio_dir=self.dataset_path, slice_time=self.slice_length)
             train_dataset_length = int(len(self.dataset) * (1 - self.eval_split_factor))
             self.train_dataset, self.eval_dataset = random_split(self.dataset, 
                                                                 (train_dataset_length, 
