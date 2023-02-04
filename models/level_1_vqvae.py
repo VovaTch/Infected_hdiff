@@ -25,7 +25,6 @@ class ConvBlock1D(nn.Module):
             nn.BatchNorm1d(out_channels),
             nn.Conv1d(out_channels, out_channels, kernel_size=kernel_size, padding=kernel_size // 2),
             nn.GELU(),
-            nn.BatchNorm1d(out_channels),
         )
            
             
