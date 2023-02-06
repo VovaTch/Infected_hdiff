@@ -100,7 +100,7 @@ class Lvl1Decoder(nn.Module):
             
         x_out = self.end_conv(z)
             
-        return torch.tanh(x_out)
+        return x_out
 
 
 class Lvl1VQ(nn.Module):
