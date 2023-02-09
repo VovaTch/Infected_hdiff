@@ -43,6 +43,16 @@
         },
 
         {
+            "name": "Python: Train Denoiser",
+            "type": "python",
+            "request": "launch",
+            "module": "scripts.train",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": ["-d", "1", "-a", "denoiser"]
+        },
+
+        {
             "name": "Python: Test",
             "type": "python",
             "request": "launch",

@@ -1,10 +1,11 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import random_split
+from torch.utils.data import random_split, DataLoader
 import pytorch_lightning as pl
 
 import loaders
+from models.level_1_vqvae import Lvl1VQVariationalAutoEncoder
 
 
 DATASETS = {'denoising_dataset': loaders.DenoiseDataset,
@@ -22,9 +23,10 @@ class WaveUNet_Denoiser(pl.LightningModule):
                  num_decoder_layers: int,
                  filter_size_encoder: int, 
                  filter_size_decoder: int,
+                 lvl1_vqvae: Lvl1VQVariationalAutoEncoder=None,
                  num_input_channels: int=1,
                  num_filters: int=1,
-                 dataset_name: str='denoising_dataset',
+                 dataset_name: str='music_slice_dataset',
                  dataset_path: str='data/music_samples',
                  scheduler_type: str='one_cycle_lr',
                  eval_split_factor: float=0.01,
@@ -45,31 +47,35 @@ class WaveUNet_Denoiser(pl.LightningModule):
         self.num_filters = num_filters
         self.cfg = kwargs
         self.dataset_path = dataset_path
+        self.lvl1_vqvae = lvl1_vqvae
         
         # Initialize channel lists
         enc_channel_in = [self.num_input_channels] + [min(self.num_decoder_layers, (i + 1)) * self.num_filters 
                                                       for i in range(self.num_encoder_layers - 1)]
         enc_channel_out = [min(self.num_decoder_layers, (i + 1)) * self.num_filters for i in range(self.num_encoder_layers)]
         dec_channel_out = enc_channel_out[:self.num_decoder_layers][::-1]
-        dec_channel_in = [enc_channel_out[-1]*2 + self.num_filters] + [enc_channel_out[-i-1] + dec_channel_out[i-1] 
-                                                                       for i in range(1, self.num_decoder_layers)]
+        dec_channel_in = [enc_channel_out[-1] * 2] + [enc_channel_out[- i - 1] + dec_channel_out[i - 1] 
+                                                                         for i in range(1, self.num_decoder_layers)]
         
         # Initialize encoder and decoder
         self.encoder = nn.ModuleList()
         self.decoder = nn.ModuleList()
         
         for i in range(self.num_encoder_layers):
-            self.encoder.append(nn.Conv1d(enc_channel_in[i], enc_channel_out[i], self.filter_size_encoder))
+            self.encoder.append(nn.Conv1d(enc_channel_in[i], enc_channel_out[i], self.filter_size_encoder, 
+                                          padding=self.filter_size_encoder // 2))
 
         for i in range(self.num_decoder_layers):
-            self.decoder.append(nn.Conv1d(dec_channel_in[i], dec_channel_out[i], self.filter_size_decoder))
+            self.decoder.append(nn.Conv1d(dec_channel_in[i], dec_channel_out[i], self.filter_size_decoder,
+                                          padding=self.filter_size_decoder // 2))
 
         self.middle_layer = nn.Sequential(
-            nn.Conv1d(enc_channel_out[-1], enc_channel_out[-1] + self.num_filters, self.filter_size_encoder),
+            nn.Conv1d(enc_channel_out[-1], enc_channel_out[-1], self.filter_size_encoder, 
+                      padding=self.filter_size_encoder // 2),
             nn.LeakyReLU(0.2)
         )
         self.output_layer = nn.Sequential(
-            nn.Conv1d(self.num_filters + self.num_input_channels, self.num_input_channels, kernel_size=1),
+            nn.Conv1d(self.num_input_channels, self.num_input_channels, kernel_size=1),
             nn.Tanh()
         )
         
@@ -101,7 +107,7 @@ class WaveUNet_Denoiser(pl.LightningModule):
 
         # Upsampling
         for i in range(self.num_decoder_layers):
-            x = F.interpolate(x, size=x.shape[-1] * 2 - 1, mode='linear', align_corners=True)
+            x = F.interpolate(x, size=x.shape[-1] * 2, mode='linear', align_corners=True)
             x = self._crop_and_concat(x, encoder[self.num_encoder_layers - i - 1])
             x = self.decoder[i](x)
             x = F.leaky_relu(x, 0.2)
@@ -110,14 +116,15 @@ class WaveUNet_Denoiser(pl.LightningModule):
         x = self._crop_and_concat(x, input)
 
         # Output prediction
-        output_vocal = self.output_layer(x)
-        output_accompaniment = self._crop(input, output_vocal.shape[-1]) - output_vocal
-        return output_vocal, output_accompaniment
+        return {'output': torch.sum(x, dim=1).unsqueeze(1)}
     
     
     def _crop_and_concat(self, x1: torch.Tensor, x2: torch.Tensor):
-        crop_x2 = self._crop(x2, x1.shape[-1])
-        x = torch.cat([x1,crop_x2], dim=1)
+        if x2.shape[-1] != x1.shape[-1]: # This probably should be deleted if anyone reads this besides me.
+            crop_x2 = self._crop(x2, x1.shape[-1])
+        else:
+            crop_x2 = x2
+        x = torch.cat([x1, crop_x2], dim=1)
         return x
 
     def _crop(self, tensor: torch.Tensor, target_shape):
@@ -164,3 +171,53 @@ class WaveUNet_Denoiser(pl.LightningModule):
             self.train_dataset, self.eval_dataset = random_split(self.dataset, 
                                                                 (train_dataset_length, 
                                                                 len(self.dataset) - train_dataset_length))
+            
+    
+    def training_step(self, batch, batch_idx):
+        
+        music_slice = batch['music slice']
+        assert self.lvl1_vqvae is not None, 'Must include lvl1 vqvae model for training.'
+        
+        # Infer the required reconstructed slice
+        with torch.no_grad():
+            reconstructed_slice = self.lvl1_vqvae(music_slice)['output']
+        
+        # Forward
+        denoised_slice = self(reconstructed_slice)['output']
+        
+        # Compute loss
+        denoise_loss = F.mse_loss(music_slice, denoised_slice)
+        self.log('Training total loss', denoise_loss)
+        
+        return denoise_loss
+    
+    
+    def validation_step(self, batch, batch_idx):
+        
+        music_slice = batch['music slice']
+        assert self.lvl1_vqvae is not None, 'Must include lvl1 vqvae model for training.'
+        
+        # Infer the required reconstructed slice
+        with torch.no_grad():
+            reconstructed_slice = self.lvl1_vqvae(music_slice)['output']
+        
+        # Forward
+        denoised_slice = self(reconstructed_slice)['output']
+        
+        # Compute loss
+        denoise_loss = F.mse_loss(music_slice, denoised_slice)
+        self.log('Validation total loss', denoise_loss)
+        
+        
+    def train_dataloader(self):
+        self._set_dataset()
+        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True)
+    
+    
+    def val_dataloader(self):
+        self._set_dataset()
+        return DataLoader(self.eval_dataset, batch_size=self.batch_size, shuffle=False)
+        
+            
+            
+    
