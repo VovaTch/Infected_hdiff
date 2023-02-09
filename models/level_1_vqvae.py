@@ -7,9 +7,9 @@ from torch.utils.data import random_split, DataLoader
 import pytorch_lightning as pl
 
 from .vq_codebook import VQCodebook
-import loaders
+from loaders import MP3SliceDataset
 
-DATASETS = {'music_slice_dataset': loaders.MP3SliceDataset}
+DATASETS = {'music_slice_dataset': MP3SliceDataset}
 
 class ConvBlock1D(nn.Module):
     """

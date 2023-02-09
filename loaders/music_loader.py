@@ -20,13 +20,13 @@ class MP3SliceDataset(Dataset):
     def __init__(self, 
                  sample_rate: int=44100,
                  audio_dir: str="data/music_samples/", 
-                 slice_time: float=5.0,
+                 slice_time: float=0.7430386,
                  n_fft: int=1024,
                  hop_length: int=512,
                  n_melts_per_second: int=64,
                  device: str="cpu",
                  preload: bool=True,
-                 preload_file_path: str='data/music_samples/000-datatensor.pkl',
+                 preload_file_path: str='data/music_samples/000-datatensor.pt',
                  **kwargs):
         
         # Initialize the object variables
@@ -57,16 +57,20 @@ class MP3SliceDataset(Dataset):
             # Load pickle file if exists
             if os.path.isfile(preload_file_path):
                 print(f'Loading file {preload_file_path}...')
-                with open(preload_file_path, 'rb') as f:
-                    self.processed_slice_data = pickle.load(f)
-                    print(f'Music file {preload_file_path} is loaded.')
+                self.processed_slice_data = torch.load(preload_file_path)
+                
+                
+                # with open(preload_file_path, 'rb') as f:
+                #     self.processed_slice_data = pickle.load(f)
+                print(f'Music file {preload_file_path} is loaded.')
                 
             # Save pickle file if not
             else:
                 self.processed_slice_data = self._create_music_slices(self.file_list).squeeze(0).to(device)
-                with open(preload_file_path, 'wb') as f:
-                    pickle.dump(self.processed_slice_data, f)
-                    print(f'Saved music file at {preload_file_path}')
+                torch.save(self.processed_slice_data, preload_file_path)
+                # with open(preload_file_path, 'wb') as f:
+                #     pickle.dump(self.processed_slice_data, f)
+                print(f'Saved music file at {preload_file_path}')
         
     def _create_music_slices(self, file_list: List[str]):
         """

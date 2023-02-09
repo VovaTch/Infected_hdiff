@@ -7,7 +7,8 @@ import pytorch_lightning as pl
 import loaders
 
 
-DATASETS = {'denoising_dataset': loaders.DenoisingDataset}
+DATASETS = {'denoising_dataset': loaders.DenoiseDataset,
+            'music_slice_dataset': loaders.MP3SliceDataset}
 
 
 class WaveUNet_Denoiser(pl.LightningModule):
@@ -72,7 +73,6 @@ class WaveUNet_Denoiser(pl.LightningModule):
             nn.Tanh()
         )
         
-        # Datasets
         assert dataset_name in DATASETS, f'Dataset {dataset_name} is not in the datasets options.'
         assert 0 <= eval_split_factor <= 1, f'The split factor must be between 0 and 1, current value is {eval_split_factor}'
         self.dataset = None
