@@ -30,7 +30,7 @@ def initialize_trainer(cfg, num_devices: int=0) -> pl.Trainer:
     model_summary = ModelSummary(max_depth=3)
     trainer = pl.Trainer(gradient_clip_val=cfg['gradient_clip'],
                          logger=logger,
-                         callbacks=[model_checkpoint_callback, model_summary, learning_rate_monitor],
+                         callbacks=[model_checkpoint_callback, model_summary, learning_rate_monitor, ema],
                          devices=num_devices,
                          max_epochs=cfg['epochs'],
                          log_every_n_steps=1,

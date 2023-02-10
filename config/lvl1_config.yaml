@@ -13,10 +13,13 @@ model:
 learning:
   batch_size: 8
   learning_rate: 0.001
-  weight_decay: 0.01
+  weight_decay: 0.0
   epochs: 20
   gradient_clip: 0.5
   beta_ema: 0.9999
   monitored_loss: Validation total loss
   dataset_path: data/music_samples/
+  scheduler_type: 'one_cycle_lr'
+  dataset_name: 'music_slice_dataset'
+  eval_split_factor: 0.01
   

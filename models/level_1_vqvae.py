@@ -8,6 +8,7 @@ import pytorch_lightning as pl
 
 from .vq_codebook import VQCodebook
 from loaders import MP3SliceDataset
+from .base import BaseNetwork
 
 DATASETS = {'music_slice_dataset': MP3SliceDataset}
 
@@ -128,7 +129,7 @@ class Lvl1VQ(nn.Module):
         
 
 
-class Lvl1VQVariationalAutoEncoder(pl.LightningModule):
+class Lvl1VQVariationalAutoEncoder(BaseNetwork):
     """
     VQ VAE that takes a music sample and converts it into latent space, hopefully faithfully reconstructing it later.
     This latent space is then used for the lowest level sample generation in a DiT like fashion.
@@ -139,20 +140,12 @@ class Lvl1VQVariationalAutoEncoder(pl.LightningModule):
                  slice_length: float,
                  hidden_size: int,
                  latent_depth: int,
-                 learning_rate: float,
-                 weight_decay: float,
-                 batch_size: int,
-                 epochs: int,
                  beta_factor: float=0.5,
                  vocabulary_size: int=8192,
                  channel_dim_change_list: List[int] = [2, 2, 2, 4, 4],
-                 dataset_name: str='music_slice_dataset',
-                 dataset_path: str='data/music_samples',
-                 optimizer_name: str='one_cycle_lr',
-                 eval_split_factor: float=0.01,
                  **kwargs):
         
-        super().__init__()
+        super().__init__(**kwargs)
         
         # Parse arguments
         self.cfg = kwargs
@@ -161,12 +154,7 @@ class Lvl1VQVariationalAutoEncoder(pl.LightningModule):
         self.samples_per_slice = int(sample_rate * slice_length)
         self.hidden_size = hidden_size
         self.latent_depth = latent_depth
-        self.learning_rate = learning_rate
-        self.weight_decay = weight_decay
-        self.batch_size = batch_size
-        self.epochs = epochs
         self.beta_factor = beta_factor
-        self.dataset_path = dataset_path
         self.vocabulary_size = vocabulary_size
         
         # Encoder parameter initialization
@@ -180,16 +168,6 @@ class Lvl1VQVariationalAutoEncoder(pl.LightningModule):
         self.encoder = Lvl1Encoder(encoder_channel_list, encoder_dim_changes)
         self.decoder = Lvl1Decoder(decoder_channel_list, decoder_dim_changes, sin_locations=sin_locations)
         self.vq_module = Lvl1VQ(latent_depth, num_tokens=vocabulary_size)
-        
-        # Datasets
-        assert dataset_name in DATASETS, f'Dataset {dataset_name} is not in the datasets options.'
-        assert 0 <= eval_split_factor <= 1, f'The split factor must be between 0 and 1, current value is {eval_split_factor}'
-        self.dataset = None
-        self.eval_split_factor = eval_split_factor
-        self.dataset_name = dataset_name
-        
-        # Optimizers
-        assert optimizer_name in ['none', 'one_cycle_lr', 'reduce_on_platou'] # TODO fix typo, program the schedulers in
         
         
     def forward(self, x, extract_losses: bool=False):
@@ -205,36 +183,6 @@ class Lvl1VQVariationalAutoEncoder(pl.LightningModule):
             total_output.update({'reconstruction_loss': F.mse_loss(x, x_out)})
         
         return total_output
-    
-    
-    def train_dataloader(self):
-        self._set_dataset()
-        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True)
-    
-    
-    def val_dataloader(self):
-        self._set_dataset()
-        return DataLoader(self.eval_dataset, batch_size=self.batch_size, shuffle=False)
-    
-    
-    def configure_optimizers(self):
-        self._set_dataset()
-        if len(self.dataset) % self.batch_size == 0:
-            total_steps = len(self.dataset) // self.batch_size
-        else:
-            total_steps = len(self.dataset) // self.batch_size + 1
-        
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)#, weight_decay=self.weight_decay)
-        scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=self.learning_rate, 
-                                                        epochs=self.epochs,
-                                                        steps_per_epoch=total_steps)
-        # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=1e6)
-        scheduler_settings= {'scheduler': scheduler,
-                             'interval': 'step',
-                             'monitor': 'Training reconstruction loss',
-                             'frequency': 1} # Set the scheduler to step every batch
-        
-        return [optimizer], [scheduler_settings]
     
     
     def training_step(self, batch, batch_idx):
@@ -265,15 +213,6 @@ class Lvl1VQVariationalAutoEncoder(pl.LightningModule):
                 displayed_key = key.replace('_', ' ')
                 self.log(f'Validation {displayed_key}', value)
         self.log('Validation total loss', total_loss)
-        
-    def _set_dataset(self):
-        
-        if self.dataset is None:
-            self.dataset = DATASETS[self.dataset_name](**self.cfg, audio_dir=self.dataset_path, slice_time=self.slice_length)
-            train_dataset_length = int(len(self.dataset) * (1 - self.eval_split_factor))
-            self.train_dataset, self.eval_dataset = random_split(self.dataset, 
-                                                                (train_dataset_length, 
-                                                                len(self.dataset) - train_dataset_length))
     
     
 if __name__ == "__main__":
