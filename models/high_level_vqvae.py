@@ -2,7 +2,6 @@ from typing import List
 
 import torch
 import torch.nn as nn
-import pytorch_lightning as pl
 
 from .vq_codebook import VQCodebook
 from .level_1_vqvae import Lvl1VQ as HighLvlVQ

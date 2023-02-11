@@ -1,8 +1,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import random_split, DataLoader
-import pytorch_lightning as pl
 
 import loaders
 from models.level_1_vqvae import Lvl1VQVariationalAutoEncoder
