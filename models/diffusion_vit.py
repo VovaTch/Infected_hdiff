@@ -118,7 +118,7 @@ class DiffusionViT(BaseNetwork):
             total_cond = torch.cat(cond_list, dim=1) # BS x Cond*W+/bl * C*bl
             total_cond = self.fc_in(total_cond) # BS x Cond*W+/bl x h
         else:
-            empty_index = torch.tensor([0 for _ in range(x.shape[0])]).int()
+            empty_index = torch.tensor([0 for _ in range(x.shape[0])]).int().to(self.device)
             total_cond = self.empty_embedding(empty_index).unsqueeze(1) # BS x 1 x h
             
         # Prepare timestep embeddings
@@ -142,14 +142,16 @@ class DiffusionViT(BaseNetwork):
         
     def training_step(self, batch, batch_idx):
         music_slice = batch['music slice']
-        loss = self.get_loss(music_slice)
+        time_steps = torch.randint(1, self.num_steps, (music_slice.shape[0],)).to(self.device)
+        loss = self.get_loss(music_slice, time_steps)
         self.log('Training total loss', loss)
         return loss
     
     
     def validation_step(self, batch, batch_idx):
         music_slice = batch['music slice']
-        loss = self.get_loss(music_slice)
+        time_steps = torch.randint(1, self.num_steps, (music_slice.shape[0],)).to(self.device)
+        loss = self.get_loss(music_slice, time_steps)
         self.log('Validation total loss', loss)
         
         
@@ -167,7 +169,7 @@ class DiffusionViT(BaseNetwork):
         return x
     
     
-    def get_loss(self, x_0, t, conditional_list):
+    def get_loss(self, x_0, t, conditional_list=None):
         x_noisy, noise = forward_diffusion_sample(x_0, t, self.diffusion_constants, self.device)
         noise_pred = self(x_noisy, t, conditional_list)
         return F.l1_loss(noise, noise_pred)

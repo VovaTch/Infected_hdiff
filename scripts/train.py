@@ -3,6 +3,7 @@ import sys
 
 from models.level_1_vqvae import Lvl1VQVariationalAutoEncoder
 from models.unet_denoiser import WaveUNet_Denoiser
+from models.diffusion_vit import DiffusionViT
 from utils.other import load_cfg_dict, initialize_trainer
 
 
@@ -66,6 +67,33 @@ def train_denoiser(args):
         save_path = f'/content/drive/MyDrive/net_weights/IHDF/denoiser.ckpt'
         trainer.save_checkpoint(save_path, weights_only=True)
         print(f'Saved network weights in {save_path}.')
+        
+        
+def train_denoiser_diff(args):
+    
+    if IN_COLAB:
+        print('Running on Google Colab.')
+        
+    # Load model
+    config_path = args.config if args.config is not None else 'config/denoiser_diff_config.yaml'
+    cfg = load_cfg_dict(config_path)
+    model = DiffusionViT(**cfg)
+    if args.resume is not None:
+        model = model.load_from_checkpoint(args.resume, **cfg, strict=False)
+        
+    # Initialize trainer
+    trainer = initialize_trainer(cfg, num_devices=args.num_devices)
+        
+    # Start training
+    trainer.fit(model)
+    
+    # If running on Colab
+    if IN_COLAB:
+        print('Saving checkpoint in Google Drive:')
+        save_path = f'/content/drive/MyDrive/net_weights/IHDF/denoiser_diff.ckpt'
+        trainer.save_checkpoint(save_path, weights_only=True)
+        print(f'Saved network weights in {save_path}.')
+        
 
 def main(args):
     
@@ -82,6 +110,9 @@ def main(args):
     
     elif choice == 'denoiser':
         train_denoiser(args)
+        
+    elif choice == 'denoiser_diff':
+        train_denoiser_diff(args)
     
     else:
         raise ValueError(f'The algorithm type {choice} does not exist')
@@ -90,7 +121,11 @@ def main(args):
 if __name__ == '__main__':
     
     parser = argparse.ArgumentParser()
-    parser.add_argument('-a', '--algorithm', type=str, choices=['lvl1vqvae', 'lvl2vqvae', 'lvl3vqvae', 'denoiser'],
+    parser.add_argument('-a', '--algorithm', type=str, choices=['lvl1vqvae', 
+                                                                'lvl2vqvae', 
+                                                                'lvl3vqvae', 
+                                                                'denoiser', 
+                                                                'denoiser_diff'],
                         help='The type of algorithm to train')
     parser.add_argument('-d', '--num_devices', type=int, default=1,
                         help='Number of GPU devices, 0 will use CPU.')

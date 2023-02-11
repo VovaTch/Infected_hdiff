@@ -53,6 +53,16 @@
         },
 
         {
+            "name": "Python: Train Diffusion Denoiser",
+            "type": "python",
+            "request": "launch",
+            "module": "scripts.train",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": ["-d", "1", "-a", "denoiser_diff"]
+        },
+
+        {
             "name": "Python: Test",
             "type": "python",
             "request": "launch",
