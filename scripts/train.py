@@ -1,10 +1,19 @@
 import argparse
+import sys
 
 from models.level_1_vqvae import Lvl1VQVariationalAutoEncoder
 from models.unet_denoiser import WaveUNet_Denoiser
 from utils.other import load_cfg_dict, initialize_trainer
 
+
+# Check if we run in colab
+IN_COLAB = 'google.colab' in sys.modules
+
+
 def train_lvl_1_encoder(args):
+    
+    if IN_COLAB:
+        print('Running on Google Colab.')
     
     # Load model
     config_path = args.config if args.config is not None else 'config/lvl1_config.yaml'
@@ -19,8 +28,18 @@ def train_lvl_1_encoder(args):
     # Start training
     trainer.fit(model)
     
+    # If running on Colab
+    if IN_COLAB:
+        print('Saving checkpoint in Google Drive:')
+        save_path = f'/content/drive/MyDrive/net_weights/IHDF/lvl1_vqvae.ckpt'
+        trainer.save_checkpoint(save_path, weights_only=True)
+        print(f'Saved network weights in {save_path}.')
+    
 
 def train_denoiser(args):
+    
+    if IN_COLAB:
+        print('Running on Google Colab.')
     
     # Load saved vqvae
     lvl1_config_path = 'config/lvl1_config.yaml'
@@ -40,6 +59,13 @@ def train_denoiser(args):
     
     # Start training
     trainer.fit(model)
+    
+    # If running on Colab
+    if IN_COLAB:
+        print('Saving checkpoint in Google Drive:')
+        save_path = f'/content/drive/MyDrive/net_weights/IHDF/denoiser.ckpt'
+        trainer.save_checkpoint(save_path, weights_only=True)
+        print(f'Saved network weights in {save_path}.')
 
 def main(args):
     
