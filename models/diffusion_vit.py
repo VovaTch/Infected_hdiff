@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 import torch
 import torch.nn as nn
@@ -7,7 +7,8 @@ import pytorch_lightning as pl
 import numpy as np
 
 from .base import BaseNetwork
-from utils.diffusion import DiffusionConstants
+from utils.diffusion import DiffusionConstants, forward_diffusion_sample, get_index_from_list
+from .dit_facebook import DiTBlock, TimestepEmbedder
 
 
 def get_emb(sin_inp: torch.Tensor):
@@ -92,11 +93,12 @@ class DiffusionViT(BaseNetwork):
         self.positional_encoding = PositionalEncoding1D(self.hidden_size)
         self.fc_out = nn.Linear(hidden_size, in_dim * token_collect_size)
         self.empty_embedding = nn.Embedding(num_embeddings=1, embedding_dim=hidden_size)
+        self.timestep_embedding = nn.Embedding(num_embeddings=num_steps, embedding_dim=hidden_size)
         
         
-    def forward(self, x: torch.Tensor, cond: List[torch.Tensor]=None):
+    def forward(self, x: torch.Tensor, t: torch.Tensor, cond: List[torch.Tensor]=None):
         """
-        Forward method starts with BS x C x W
+        Forward method starts with x: BS x C x W, t: BS
         """
         
         # Transpose and divide the input into chunks
@@ -119,6 +121,8 @@ class DiffusionViT(BaseNetwork):
             empty_index = torch.tensor([0 for _ in range(x.shape[0])]).int()
             total_cond = self.empty_embedding(empty_index).unsqueeze(1) # BS x 1 x h
             
+        # Prepare timestep embeddings
+        t_emb = self.timestep_embedding(t.int()).unsqueeze(1)
         
         # Prepare inputs to the transformer
         x = self.fc_in(x) # BS x W+/bl x h
@@ -126,21 +130,27 @@ class DiffusionViT(BaseNetwork):
         total_cond += self.positional_encoding(total_cond)
         
         # Transformer
-        x = self.transformer(x, total_cond)
+        x = self.transformer(torch.cat((x, t_emb), dim=1), 
+                             torch.cat((total_cond, t_emb), dim=1))
         
         # Prepare outputs
-        x = self.fc_out(x) # BS x W+/bl x C*bl
+        x = self.fc_out(x[:, :-1, :]) # BS x W+/bl x C*bl
         x = x.view(in_shape) # BS x W x C
         
         return x.transpose(1, 2)
         
         
     def training_step(self, batch, batch_idx):
-        pass # TODO
+        music_slice = batch['music slice']
+        loss = self.get_loss(music_slice)
+        self.log('Training total loss', loss)
+        return loss
     
     
     def validation_step(self, batch, batch_idx):
-        pass # TODO
+        music_slice = batch['music slice']
+        loss = self.get_loss(music_slice)
+        self.log('Validation total loss', loss)
         
         
     def _right_pad_if_necessary(self, x: torch.Tensor):
@@ -155,3 +165,59 @@ class DiffusionViT(BaseNetwork):
             last_dim_padding = (0, num_missing_values)
             x = F.pad(x, last_dim_padding)
         return x
+    
+    
+    def get_loss(self, x_0, t, conditional_list):
+        x_noisy, noise = forward_diffusion_sample(x_0, t, self.diffusion_constants, self.device)
+        noise_pred = self(x_noisy, t, conditional_list)
+        return F.l1_loss(noise, noise_pred)
+    
+    
+    @torch.no_grad()
+    def sample_timestep(self, 
+                        x: torch.Tensor, 
+                        t: torch.Tensor,
+                        conditional_list: Optional[List[torch.Tensor]]=None):
+        """
+        Calls the model to predict the noise in the sound sample and returns 
+        the denoised sound sample. 
+        Applies noise to this sound sample, if we are not in the last step yet.
+        """
+        
+        betas_t = get_index_from_list(self.diffusion_constants.betas, t, x.shape)
+        sqrt_one_minus_alphas_cumprod_t = get_index_from_list(
+            self.diffusion_constants.sqrt_one_minus_alphas_cumprod, t, x.shape
+        )
+        sqrt_recip_alphas_t = get_index_from_list(self.diffusion_constants.sqrt_recip_alphas, t, x.shape)
+        
+        # Call model (current image - noise prediction)
+        model_mean = sqrt_recip_alphas_t * (
+            x - betas_t * self(x, t, conditional_list) / sqrt_one_minus_alphas_cumprod_t
+        )
+        posterior_variance_t = get_index_from_list(self.diffusion_constants.posterior_variance, t, x.shape)
+        
+        if t == 0:
+            return model_mean
+        else:
+            noise = torch.randn_like(x)
+            return model_mean + torch.sqrt(posterior_variance_t) * noise 
+        
+        
+    @torch.no_grad()
+    def denoise(self, noisy_input: torch.Tensor, conditionals: Optional[List[torch.Tensor]]=None):
+        """
+        The main denoising method. Expects to get a BS x 1 x Length input, will output a denoised music sample.
+
+        Args:
+            noisy_input (torch.Tensor): the input, can be noise, can be noisy music. The model should handle both.
+        """
+        
+        running_slice = noisy_input.clone()
+        batch_size = noisy_input.shape[0]
+        for time_step in reversed(range(self.num_steps)):
+            time_input = torch.tensor([time_step for _ in range(batch_size)]).to(self.device)
+            running_slice = self.sample_timestep(running_slice, time_input, conditionals)
+        
+        running_slice[running_slice < -1] = -1
+        running_slice[running_slice > 1] = 1
+        return running_slice

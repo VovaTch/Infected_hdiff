@@ -29,12 +29,22 @@ class TestDiT(unittest.TestCase):
         
         
     def test_output(self):
-        output = self.model(self.batch)
+        output = self.model(self.batch, torch.tensor((3,)))
         self.assertEqual(output.shape, self.batch.shape)
         
         
     def test_conditional_output(self):
-        output = self.model(self.batch, [self.batch, self.batch])
+        output = self.model(self.batch, torch.tensor((5,)), [self.batch, self.batch])
+        self.assertEqual(output.shape, self.batch.shape)
+        
+        
+    def test_denoising(self):
+        output = self.model.denoise(torch.randn_like(self.batch))
+        self.assertEqual(output.shape, self.batch.shape)
+        
+        
+    def test_denoising_conditional(self):
+        output = self.model.denoise(torch.randn_like(self.batch), [self.batch, self.batch])
         self.assertEqual(output.shape, self.batch.shape)
         
         
