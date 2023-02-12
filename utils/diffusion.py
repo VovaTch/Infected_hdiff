@@ -66,7 +66,7 @@ class DiffusionConstants:
         # Define schedule for cosine
         elif scheduler == 'cosine':
             
-            f_function = cosine_f_schedule(timesteps=T)
+            f_function = cosine_schedule(timesteps=T)
             
             # Pre-calculate different terms for closed form
             self.alphas_cumprod = f_function
