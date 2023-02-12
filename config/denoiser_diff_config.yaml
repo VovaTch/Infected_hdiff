@@ -4,18 +4,18 @@ model:
   slice_length: 0.7430386 # Length of slice to get 2^15 samples
   in_dim: 1
   hidden_size: 512
-  token_collect_size: 128
+  token_collect_size: 64
   num_blocks: 6
   num_heads: 8
   dropout: 0.0
-  num_steps: 10
+  num_steps: 200
   schedulers: cosine
 
 learning:
   batch_size: 16
   learning_rate: 0.001
   weight_decay: 0.01
-  epochs: 20
+  epochs: 50
   gradient_clip: 0.5
   beta_ema: 0.9999
   monitored_loss: Validation total loss
