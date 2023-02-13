@@ -22,4 +22,13 @@ learning:
   scheduler_type: 'one_cycle_lr'
   dataset_name: 'music_slice_dataset'
   eval_split_factor: 0.01
+
+mel_spec_config:
+  n_fft: 1024
+  hop_length: 512
+  n_mels: 128
+  pad_mode: reflect
+  power: 2.0
+  norm: "slaney"
+  mel_scale: "htk"
   

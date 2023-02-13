@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
 import numpy as np
+from torchaudio.transforms import MelSpectrogram
 
 from .base import BaseNetwork
 from utils.diffusion import DiffusionConstants, forward_diffusion_sample, get_index_from_list
@@ -84,6 +85,13 @@ class DiffusionViT(BaseNetwork):
         self.diffusion_constants = DiffusionConstants(self.num_steps, scheduler=scheduler)
         assert hidden_size % num_heads == 0, \
             f'The hidden dimension {hidden_size} must be divisible by the number of heads {num_heads}.'
+            
+        # Initialize mel spectrogram, TODO: Might do multiple ones for multiple losses
+        self.mel_spec = None
+        if 'mel_spec_config' in kwargs:
+            self.mel_spec_config = kwargs['mel_spec_config']
+            self.mel_spec = MelSpectrogram(sample_rate=kwargs['sample_rate'], **self.mel_spec)
+            
         
         # Initialize layers
         self.fc_in = nn.Linear(in_dim * token_collect_size, hidden_size)
