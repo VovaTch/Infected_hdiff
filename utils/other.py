@@ -10,7 +10,7 @@ def load_cfg_dict(config_path):
     with open(config_path, 'r') as f:
         cfg_dict_raw = yaml.safe_load(f)
     cfg_dict = {**cfg_dict_raw['model'], **cfg_dict_raw['learning']}
-    del cfg_dict_raw['model'], cfg_dict['learning']
+    del cfg_dict_raw['model'], cfg_dict_raw['learning']
     cfg_dict.update(**cfg_dict_raw)
     return cfg_dict
 
