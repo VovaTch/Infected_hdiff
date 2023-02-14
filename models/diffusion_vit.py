@@ -187,7 +187,7 @@ class DiffusionViT(BaseNetwork):
     def get_loss(self, x_0, t, conditional_list=None):
         x_noisy, noise = forward_diffusion_sample(x_0, t, self.diffusion_constants, self.device)
         noise_pred = self(x_noisy, t, conditional_list)
-        stft_loss = F.mse_loss(self.mel_spec(noise), self.mel_spec(noise_pred))
+        stft_loss = F.mse_loss(self.mel_spec(noise.flatten()), self.mel_spec(noise_pred.flatten()))
         return {'diffusion_error_loss': F.mse_loss(noise, noise_pred),
                 'stft_loss': stft_loss}
     
@@ -219,7 +219,7 @@ class DiffusionViT(BaseNetwork):
             return model_mean
         else:
             noise = torch.randn_like(x)
-            return model_mean #+ torch.sqrt(posterior_variance_t) * noise 
+            return model_mean + torch.sqrt(posterior_variance_t) * noise 
         
         
     @torch.no_grad()
@@ -237,6 +237,6 @@ class DiffusionViT(BaseNetwork):
             time_input = torch.tensor([time_step for _ in range(batch_size)]).to(self.device)
             running_slice = self.sample_timestep(running_slice, time_input, conditionals)
         
-            running_slice[running_slice < -1] = -1
-            running_slice[running_slice > 1] = 1
+        running_slice[running_slice < -1] = -1
+        running_slice[running_slice > 1] = 1
         return running_slice

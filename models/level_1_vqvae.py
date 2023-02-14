@@ -186,7 +186,8 @@ class Lvl1VQVariationalAutoEncoder(BaseNetwork):
         
         if extract_losses:
             total_output.update({'reconstruction_loss': F.mse_loss(x, x_out),
-                                 'stft_loss': F.mse_loss(self.mel_spec(x), self.mel_spec(x_out))})
+                                 'stft_loss': F.mse_loss(self.mel_spec(x.flatten()),
+                                                         self.mel_spec(x_out.flatten()))})
         
         return total_output
     
