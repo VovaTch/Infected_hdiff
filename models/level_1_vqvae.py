@@ -160,7 +160,7 @@ class Lvl1VQVariationalAutoEncoder(BaseNetwork):
         self.mel_spec = None
         if 'mel_spec_config' in kwargs:
             self.mel_spec_config = kwargs['mel_spec_config']
-            self.mel_spec = MelSpectrogram(sample_rate=sample_rate, **self.mel_spec)
+            self.mel_spec = MelSpectrogram(sample_rate=sample_rate, **self.mel_spec_config)
         
         # Encoder parameter initialization
         encoder_channel_list = [hidden_size, hidden_size * 2, hidden_size * 4, hidden_size * 8, hidden_size * 16, latent_depth]

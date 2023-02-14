@@ -28,7 +28,7 @@ mel_spec_config:
   hop_length: 512
   n_mels: 128
   pad_mode: reflect
-  power: 2.0
+  power: 1.0
   norm: "slaney"
   mel_scale: "htk"
   
