@@ -152,7 +152,10 @@ class DiffusionViT(BaseNetwork):
         music_slice = batch['music slice']
         time_steps = torch.randint(1, self.num_steps, (music_slice.shape[0],)).to(self.device)
         loss = self.get_loss(music_slice, time_steps)
-        self.log('Training total loss', loss)
+        loss_total = loss['diffusion_error_loss'] + loss['stft_loss']
+        self.log('Training diffusion loss', loss['diffusion_error_loss'])
+        self.log('Training stft loss', loss['stft_loss'])
+        self.log('Training total loss', loss_total)
         return loss
     
     
@@ -160,7 +163,11 @@ class DiffusionViT(BaseNetwork):
         music_slice = batch['music slice']
         time_steps = torch.randint(1, self.num_steps, (music_slice.shape[0],)).to(self.device)
         loss = self.get_loss(music_slice, time_steps)
-        self.log('Validation total loss', loss)
+        loss = self.get_loss(music_slice, time_steps)
+        loss_total = loss['diffusion_error_loss'] + loss['stft_loss']
+        self.log('Validation diffusion loss', loss['diffusion_error_loss'])
+        self.log('Validation stft loss', loss['stft_loss'])
+        self.log('Validation total loss', loss_total, prog_bar=True)
         
         
     def _right_pad_if_necessary(self, x: torch.Tensor):
@@ -180,7 +187,9 @@ class DiffusionViT(BaseNetwork):
     def get_loss(self, x_0, t, conditional_list=None):
         x_noisy, noise = forward_diffusion_sample(x_0, t, self.diffusion_constants, self.device)
         noise_pred = self(x_noisy, t, conditional_list)
-        return F.mse_loss(noise, noise_pred)
+        stft_loss = F.mse_loss(self.mel_spec(noise), self.mel_spec(noise_pred))
+        return {'diffusion_error_loss': F.mse_loss(noise, noise_pred),
+                'stft_loss': stft_loss}
     
     
     @torch.no_grad()

@@ -24,7 +24,7 @@ learning:
   dataset_name: 'music_slice_dataset'
   eval_split_factor: 0.01
 
-melspec_config:
+mel_spec_config:
   n_fft: 1024
   hop_length: 512
   n_mels: 128

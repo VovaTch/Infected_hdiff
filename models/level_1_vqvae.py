@@ -185,7 +185,8 @@ class Lvl1VQVariationalAutoEncoder(BaseNetwork):
                         'output': x_out}
         
         if extract_losses:
-            total_output.update({'reconstruction_loss': F.mse_loss(x, x_out)})
+            total_output.update({'reconstruction_loss': F.mse_loss(x, x_out),
+                                 'stft_loss': F.mse_loss(self.mel_spec(x), self.mel_spec(x_out))})
         
         return total_output
     
@@ -195,7 +196,7 @@ class Lvl1VQVariationalAutoEncoder(BaseNetwork):
         music_slice = batch['music slice']
         total_output = self.forward(music_slice, extract_losses=True)
         total_loss = total_output['reconstruction_loss'] + total_output['alignment_loss'] +\
-            self.beta_factor * total_output['commitment_loss']
+            self.beta_factor * total_output['commitment_loss'] + total_output['stft_loss']
             
         for key, value in total_output.items():
             if 'loss' in key.split('_'):
