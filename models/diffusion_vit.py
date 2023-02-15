@@ -90,7 +90,7 @@ class DiffusionViT(BaseNetwork):
         self.mel_spec = None
         if 'mel_spec_config' in kwargs:
             self.mel_spec_config = kwargs['mel_spec_config']
-            self.mel_spec = MelSpectrogram(sample_rate=kwargs['sample_rate'], **self.mel_spec)
+            self.mel_spec = MelSpectrogram(sample_rate=kwargs['sample_rate'], **self.mel_spec_config)
             
         
         # Initialize layers
@@ -156,7 +156,7 @@ class DiffusionViT(BaseNetwork):
         self.log('Training diffusion loss', loss['diffusion_error_loss'])
         self.log('Training stft loss', loss['stft_loss'])
         self.log('Training total loss', loss_total)
-        return loss
+        return loss_total
     
     
     def validation_step(self, batch, batch_idx):
