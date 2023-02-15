@@ -175,7 +175,7 @@ class Lvl1VQVariationalAutoEncoder(BaseNetwork):
         self.vq_module = Lvl1VQ(latent_depth, num_tokens=vocabulary_size)
         
         
-    def forward(self, x, extract_losses: bool=False):
+    def forward(self, x: torch.Tensor, extract_losses: bool=False):
         
         z_e = self.encoder(x)
         vq_block_output = self.vq_module(z_e, extract_losses=True)
@@ -185,11 +185,26 @@ class Lvl1VQVariationalAutoEncoder(BaseNetwork):
                         'output': x_out}
         
         if extract_losses:
-            total_output.update({'reconstruction_loss': F.mse_loss(x, x_out),
-                                 'stft_loss': F.mse_loss(self.mel_spec(x.flatten()),
-                                                         self.mel_spec(x_out.flatten()))})
+            total_output.update({'reconstruction_loss': F.mse_loss(x, x_out)})
+            total_output.update({'stft_loss': F.mse_loss(self._mel_spec_and_process(x), 
+                                                         self._mel_spec_and_process(x_out))})
         
         return total_output
+    
+    
+    def _mel_spec_and_process(self, x: torch.Tensor):
+        """
+        To prepare the mel spectrogram loss, everything needs to be prepared.
+
+        Args:
+            x (torch.Tensor): Input, will be flattened
+        """
+        mel_out = self.mel_spec(x.flatten())
+        mel_out = torch.log(mel_out)
+        mel_out[mel_out > 10] = 10
+        mel_out[mel_out < -10] = -10
+        return mel_out / 10
+        
     
     
     def training_step(self, batch, batch_idx):
