@@ -187,7 +187,7 @@ class DiffusionViT(BaseNetwork):
     def get_loss(self, x_0, t, conditional_list=None):
         x_noisy, noise = forward_diffusion_sample(x_0, t, self.diffusion_constants, self.device)
         noise_pred = self(x_noisy, t, conditional_list)
-        stft_loss = F.mse_loss(self.mel_spec(noise.flatten()), self.mel_spec(noise_pred.flatten()))
+        stft_loss = F.mse_loss(self.mel_spec((x_noisy - noise_pred).flatten()), self.mel_spec(x_0.flatten()))
         return {'diffusion_error_loss': F.mse_loss(noise, noise_pred),
                 'stft_loss': stft_loss}
     
