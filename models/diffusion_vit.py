@@ -234,10 +234,9 @@ class DiffusionViT(BaseNetwork):
         running_slice = noisy_input.clone()
         batch_size = noisy_input.shape[0]
         for time_step in reversed(range(self.num_steps)):
-            if time_step < 5:
-                time_input = torch.tensor([time_step for _ in range(batch_size)]).to(self.device)
-                running_slice = self.sample_timestep(running_slice, time_input, conditionals)
-            
-                running_slice[running_slice < -1] = -1
-                running_slice[running_slice > 1] = 1
+            time_input = torch.tensor([time_step for _ in range(batch_size)]).to(self.device)
+            running_slice = self.sample_timestep(running_slice, time_input, conditionals)
+        
+        running_slice[running_slice < -1] = -1
+        running_slice[running_slice > 1] = 1
         return running_slice

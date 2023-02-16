@@ -163,7 +163,7 @@ class Lvl1VQVariationalAutoEncoder(BaseNetwork):
             self.mel_spec = MelSpectrogram(sample_rate=sample_rate, **self.mel_spec_config)
         
         # Encoder parameter initialization
-        encoder_channel_list = [hidden_size, hidden_size * 2, hidden_size * 4, hidden_size * 8, hidden_size * 16, latent_depth]
+        encoder_channel_list = [hidden_size * ((idx + 1) ** 2) for idx in range(len(channel_dim_change_list))] + [latent_depth]
         encoder_dim_changes = channel_dim_change_list
         decoder_channel_list = list(reversed(encoder_channel_list))
         decoder_dim_changes = list(reversed(channel_dim_change_list))
@@ -199,11 +199,9 @@ class Lvl1VQVariationalAutoEncoder(BaseNetwork):
         Args:
             x (torch.Tensor): Input, will be flattened
         """
-        mel_out = self.mel_spec(x.flatten())
-        mel_out = torch.log(mel_out)
-        mel_out[mel_out > 10] = 10
-        mel_out[mel_out < -10] = -10
-        return mel_out / 10
+        mel_out = self.mel_spec(x.squeeze(1))
+        mel_out = torch.tanh(mel_out)
+        return mel_out
         
     
     
