@@ -140,6 +140,7 @@ class Lvl1VQVariationalAutoEncoder(BaseNetwork):
                  hidden_size: int,
                  latent_depth: int,
                  beta_factor: float=0.5,
+                 mel_factor: float=100.0,
                  vocabulary_size: int=8192,
                  channel_dim_change_list: List[int] = [2, 2, 2, 4, 4],
                  **kwargs):
@@ -155,6 +156,7 @@ class Lvl1VQVariationalAutoEncoder(BaseNetwork):
         self.latent_depth = latent_depth
         self.beta_factor = beta_factor
         self.vocabulary_size = vocabulary_size
+        self.mel_factor = mel_factor
         
         # Initialize mel spectrogram, TODO: Might do multiple ones for multiple losses
         self.mel_spec = None
@@ -199,8 +201,10 @@ class Lvl1VQVariationalAutoEncoder(BaseNetwork):
         Args:
             x (torch.Tensor): Input, will be flattened
         """
+        lin_vector = torch.linspace(0.1, 5, self.mel_spec_config['n_mels'])
+        eye_mat = torch.diag(lin_vector).to(self.device)
         mel_out = self.mel_spec(x.squeeze(1))
-        mel_out = torch.tanh(mel_out)
+        mel_out = torch.tanh(eye_mat @ mel_out)
         return mel_out
         
     
@@ -210,7 +214,8 @@ class Lvl1VQVariationalAutoEncoder(BaseNetwork):
         music_slice = batch['music slice']
         total_output = self.forward(music_slice, extract_losses=True)
         total_loss = total_output['reconstruction_loss'] + total_output['alignment_loss'] +\
-            self.beta_factor * total_output['commitment_loss'] + total_output['stft_loss']
+            self.beta_factor * total_output['commitment_loss'] +\
+            self.mel_factor * total_output['stft_loss']
             
         for key, value in total_output.items():
             if 'loss' in key.split('_'):

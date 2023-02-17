@@ -29,6 +29,16 @@ def initialize_trainer(cfg, num_devices: int=0) -> pl.Trainer:
                                                 save_weights_only=True, 
                                                 save_top_k=1,
                                                 monitor=cfg['monitored_loss'])
+    
+    # AMP 
+    if 'amp' in cfg:
+        if cfg['amp']:
+            precision = 16
+        else:
+            precision = 32
+    else:
+        precision = 32
+    
     model_summary = ModelSummary(max_depth=3)
     trainer = pl.Trainer(gradient_clip_val=cfg['gradient_clip'],
                          logger=logger,
@@ -36,7 +46,7 @@ def initialize_trainer(cfg, num_devices: int=0) -> pl.Trainer:
                          devices=num_devices,
                          max_epochs=cfg['epochs'],
                          log_every_n_steps=1,
-                         precision=16,
+                         precision=precision,
                          accelerator=accelerator)
     
     return trainer

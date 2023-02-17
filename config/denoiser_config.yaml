@@ -9,6 +9,7 @@ model:
   filter_size_decoder: 5
   num_input_channels: 1
   num_filters: 16
+  amp: True
 
 
 learning:

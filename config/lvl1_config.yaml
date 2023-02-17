@@ -7,13 +7,15 @@ model:
   latent_width: 128
   latent_depth: 8
   beta_factor: 0.5
+  mel_factor: 100.0
   vocabulary_size: 32768
   channel_dim_change_list: [2, 2, 2, 2, 2, 2]
+  amp: False
 
 learning:
   batch_size: 8
   learning_rate: 0.001
-  weight_decay: 0.01
+  weight_decay: 0.0
   epochs: 20
   gradient_clip: 0.5
   beta_ema: 0.9999
