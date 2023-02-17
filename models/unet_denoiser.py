@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torchaudio.transforms import MelSpectrogram
 
 import loaders
 from models.level_1_vqvae import Lvl1VQVariationalAutoEncoder
@@ -18,6 +19,7 @@ class WaveUNet_Denoiser(BaseNetwork):
                  num_decoder_layers: int,
                  filter_size_encoder: int, 
                  filter_size_decoder: int,
+                 mel_factor: float=100.0,
                  lvl1_vqvae: Lvl1VQVariationalAutoEncoder=None,
                  num_input_channels: int=1,
                  num_filters: int=1,
@@ -34,6 +36,7 @@ class WaveUNet_Denoiser(BaseNetwork):
         self.num_filters = num_filters
         self.cfg = kwargs
         self.lvl1_vqvae = lvl1_vqvae
+        self.mel_factor = mel_factor
         
         # Initialize channel lists
         enc_channel_in = [self.num_input_channels] + [min(self.num_decoder_layers, (i + 1)) * self.num_filters 
@@ -42,6 +45,12 @@ class WaveUNet_Denoiser(BaseNetwork):
         dec_channel_out = enc_channel_out[:self.num_decoder_layers][::-1]
         dec_channel_in = [enc_channel_out[-1] * 2] + [enc_channel_out[- i - 1] + dec_channel_out[i - 1] 
                                                                          for i in range(1, self.num_decoder_layers)]
+        
+        # Initialize mel spectrogram, TODO: Might do multiple ones for multiple losses
+        self.mel_spec = None
+        if 'mel_spec_config' in kwargs:
+            self.mel_spec_config = kwargs['mel_spec_config']
+            self.mel_spec = MelSpectrogram(sample_rate=self.cfg['sample_rate'], **self.mel_spec_config)
         
         # Initialize encoder and decoder
         self.encoder = nn.ModuleList()
@@ -126,9 +135,14 @@ class WaveUNet_Denoiser(BaseNetwork):
         
         # Compute loss
         denoise_loss = F.mse_loss(music_slice, denoised_slice)
-        self.log('Training total loss', denoise_loss)
+        stft_loss = F.mse_loss(self._mel_spec_and_process(music_slice), self._mel_spec_and_process(denoised_slice))
+        self.log('Training reconstruction loss', denoise_loss)
+        self.log('Training stft loss', stft_loss)
         
-        return denoise_loss
+        total_loss = denoise_loss + self.mel_factor * stft_loss
+        self.log('Training total loss', total_loss)
+        
+        return total_loss
     
     
     def validation_step(self, batch, batch_idx):
@@ -145,7 +159,26 @@ class WaveUNet_Denoiser(BaseNetwork):
         
         # Compute loss
         denoise_loss = F.mse_loss(music_slice, denoised_slice)
-        self.log('Validation total loss', denoise_loss)
+        stft_loss = F.mse_loss(self._mel_spec_and_process(music_slice), self._mel_spec_and_process(denoised_slice))
+        self.log('Evaluation reconstruction loss', denoise_loss)
+        self.log('Evaluation stft loss', stft_loss)
+        
+        total_loss = denoise_loss + self.mel_factor * stft_loss
+        self.log('Evaluation total loss', total_loss, prog_bar=True)
+        
+        
+    def _mel_spec_and_process(self, x: torch.Tensor):
+        """
+        To prepare the mel spectrogram loss, everything needs to be prepared.
+
+        Args:
+            x (torch.Tensor): Input, will be flattened
+        """
+        lin_vector = torch.linspace(0.1, 5, self.mel_spec_config['n_mels'])
+        eye_mat = torch.diag(lin_vector).to(self.device)
+        mel_out = self.mel_spec(x.squeeze(1))
+        mel_out = torch.tanh(eye_mat @ mel_out)
+        return mel_out
         
         
         

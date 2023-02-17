@@ -237,7 +237,7 @@ class Lvl1VQVariationalAutoEncoder(BaseNetwork):
             if 'loss' in key.split('_'):
                 displayed_key = key.replace('_', ' ')
                 self.log(f'Validation {displayed_key}', value)
-        self.log('Validation total loss', total_loss)
+        self.log('Validation total loss', total_loss, prog_bar=True)
     
     
 if __name__ == "__main__":
