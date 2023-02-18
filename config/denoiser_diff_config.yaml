@@ -4,7 +4,7 @@ model:
   slice_length: 0.7430386 # Length of slice to get 2^15 samples
   in_dim: 1
   hidden_size: 512
-  token_collect_size: 32
+  token_collect_size: 64
   num_blocks: 6
   num_heads: 8
   dropout: 0.0
@@ -13,7 +13,7 @@ model:
   amp: True
 
 learning:
-  batch_size: 4
+  batch_size: 16
   learning_rate: 0.001
   weight_decay: 0.01
   epochs: 20
@@ -24,7 +24,7 @@ learning:
   scheduler_type: 'one_cycle_lr'
   dataset_name: 'music_slice_dataset'
   eval_split_factor: 0.01
-  mel_factor: 100.0
+  mel_factor: 5.0
 
 mel_spec_config:
   n_fft: 1024

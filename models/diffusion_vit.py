@@ -276,6 +276,7 @@ class DiffusionViT(BaseNetwork):
             
             time_input = torch.tensor([time_step for _ in range(batch_size)]).to(self.device)
             running_slice = self.sample_timestep(running_slice, time_input, conditionals)
+            running_slice = torch.tanh(running_slice)
         
         #running_slice[running_slice < -1] = -1
         #running_slice[running_slice > 1] = 1

@@ -75,6 +75,11 @@ class Lvl1Decoder(nn.Module):
         
         # Create the module lists for the architecture
         self.end_conv = nn.Conv1d(channel_list[-1], input_channels, kernel_size=3, padding=1)
+        self.conv_1d_end = nn.ModuleList(
+            nn.Conv1d(channel_list[-1], channel_list[0], kernel_size=1),
+            nn.GELU(),
+            nn.Conv1d(channel_list[0], channel_list[-1], kernel_size=1)
+        )
         self.conv_list = nn.ModuleList(
             [ConvBlock1D(channel_list[idx], channel_list[idx + 1], 5) for idx in range(len(dim_change_list))]
         )
@@ -100,7 +105,7 @@ class Lvl1Decoder(nn.Module):
             
         x_out = self.end_conv(z)
             
-        return x_out
+        return x_out + self.conv_1d_end(x_out)
 
 
 class Lvl1VQ(nn.Module):
