@@ -63,7 +63,7 @@ class Lvl1Encoder(nn.Module):
             x = dim_change(x)
         
         return x
-    
+
 
 class Lvl1Decoder(nn.Module):
     
@@ -73,12 +73,14 @@ class Lvl1Decoder(nn.Module):
         super().__init__()
         assert len(channel_list) == len(dim_change_list) + 1, "The channel list length must be greater than the dimension change list by 1"
         
+        print(channel_list)
+        
         # Create the module lists for the architecture
         self.end_conv = nn.Conv1d(channel_list[-1], input_channels, kernel_size=3, padding=1)
-        self.conv_1d_end = nn.ModuleList(
-            nn.Conv1d(channel_list[-1], channel_list[0], kernel_size=1),
+        self.conv_1d_end = nn.Sequential(
+            nn.Conv1d(1, channel_list[1], kernel_size=1),
             nn.GELU(),
-            nn.Conv1d(channel_list[0], channel_list[-1], kernel_size=1)
+            nn.Conv1d(channel_list[1], 1, kernel_size=1)
         )
         self.conv_list = nn.ModuleList(
             [ConvBlock1D(channel_list[idx], channel_list[idx + 1], 5) for idx in range(len(dim_change_list))]
@@ -170,7 +172,7 @@ class Lvl1VQVariationalAutoEncoder(BaseNetwork):
             self.mel_spec = MelSpectrogram(sample_rate=sample_rate, **self.mel_spec_config)
         
         # Encoder parameter initialization
-        encoder_channel_list = [hidden_size * ((idx + 1) ** 2) for idx in range(len(channel_dim_change_list))] + [latent_depth]
+        encoder_channel_list = [hidden_size * (2 ** (idx + 1)) for idx in range(len(channel_dim_change_list))] + [latent_depth]
         encoder_dim_changes = channel_dim_change_list
         decoder_channel_list = list(reversed(encoder_channel_list))
         decoder_dim_changes = list(reversed(channel_dim_change_list))
