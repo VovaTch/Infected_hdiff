@@ -8,14 +8,14 @@ model:
   filter_size_encoder: 15
   filter_size_decoder: 5
   num_input_channels: 1
-  num_filters: 16
+  num_filters: 64
   amp: True
 
 
 learning:
-  batch_size: 16
-  learning_rate: 0.000
-  weight_decay: 0.01
+  batch_size: 8
+  learning_rate: 0.0001
+  weight_decay: 0.0
   epochs: 20
   gradient_clip: 0.5
   beta_ema: 0.9999

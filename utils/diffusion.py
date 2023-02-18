@@ -72,7 +72,7 @@ class DiffusionConstants:
             self.alphas_cumprod = f_function
             self.alphas_cumprod_prev = F.pad(self.alphas_cumprod[:-1], (1, 0), value=1.0)
             self.betas = 1 - torch.div(self.alphas_cumprod, self.alphas_cumprod_prev)
-            self.betas[self.betas > 0.999] = 0.999
+            self.betas[self.betas > 0.99] = 0.99
             
             self.alphas = 1. - self.betas
             self.sqrt_recip_alphas = torch.sqrt(1.0 / self.alphas)

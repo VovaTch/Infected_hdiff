@@ -6,6 +6,7 @@ import torch.nn.functional as F
 import pytorch_lightning as pl
 import numpy as np
 from torchaudio.transforms import MelSpectrogram
+import matplotlib.pyplot as plt
 
 from .base import BaseNetwork
 from utils.diffusion import DiffusionConstants, forward_diffusion_sample, get_index_from_list
@@ -16,7 +17,7 @@ def get_emb(sin_inp: torch.Tensor):
     """
     Gets a base embedding for one dimension with sin and cos intertwined
     """
-    emb = torch.stack((sin_inp.sin(), sin_inp.cos()), dim=-1)
+    emb = torch.stack((sin_inp.sin(), sin_inp.cos()), dim=-1) 
     return torch.flatten(emb, -2, -1)
 
 
@@ -69,6 +70,7 @@ class DiffusionViT(BaseNetwork):
                  num_blocks: int,
                  num_heads: int,
                  num_steps: int,
+                 mel_factor: float=100.0,
                  dropout: float=0.0,
                  scheduler: str='cosine',
                  **kwargs) -> pl.LightningModule:
@@ -83,6 +85,7 @@ class DiffusionViT(BaseNetwork):
         self.num_heads = num_heads
         self.num_steps = num_steps
         self.diffusion_constants = DiffusionConstants(self.num_steps, scheduler=scheduler)
+        self.mel_factor = mel_factor
         assert hidden_size % num_heads == 0, \
             f'The hidden dimension {hidden_size} must be divisible by the number of heads {num_heads}.'
             
@@ -152,7 +155,7 @@ class DiffusionViT(BaseNetwork):
         music_slice = batch['music slice']
         time_steps = torch.randint(1, self.num_steps, (music_slice.shape[0],)).to(self.device)
         loss = self.get_loss(music_slice, time_steps)
-        loss_total = loss['diffusion_error_loss'] + loss['stft_loss']
+        loss_total = loss['diffusion_error_loss'] + loss['stft_loss'] * self.mel_factor
         self.log('Training diffusion loss', loss['diffusion_error_loss'])
         self.log('Training stft loss', loss['stft_loss'])
         self.log('Training total loss', loss_total)
@@ -163,8 +166,7 @@ class DiffusionViT(BaseNetwork):
         music_slice = batch['music slice']
         time_steps = torch.randint(1, self.num_steps, (music_slice.shape[0],)).to(self.device)
         loss = self.get_loss(music_slice, time_steps)
-        loss = self.get_loss(music_slice, time_steps)
-        loss_total = loss['diffusion_error_loss'] + loss['stft_loss']
+        loss_total = loss['diffusion_error_loss'] + loss['stft_loss'] * self.mel_factor
         self.log('Validation diffusion loss', loss['diffusion_error_loss'])
         self.log('Validation stft loss', loss['stft_loss'])
         self.log('Validation total loss', loss_total, prog_bar=True)
@@ -185,11 +187,37 @@ class DiffusionViT(BaseNetwork):
     
     
     def get_loss(self, x_0, t, conditional_list=None):
+        
+        # Create noisy image
         x_noisy, noise = forward_diffusion_sample(x_0, t, self.diffusion_constants, self.device)
         noise_pred = self(x_noisy, t, conditional_list)
-        stft_loss = F.mse_loss(self.mel_spec((x_noisy - noise_pred).flatten()), self.mel_spec(x_0.flatten()))
-        return {'diffusion_error_loss': F.mse_loss(noise, noise_pred),
+        
+        # Predict the image back
+        sqrt_alphas_cumprod_t = get_index_from_list(self.diffusion_constants.sqrt_alphas_cumprod, 
+                                                    t, x_0.shape)
+        sqrt_one_minus_alphas_cumprod_t = get_index_from_list(self.diffusion_constants.sqrt_one_minus_alphas_cumprod, 
+                                                              t, x_0.shape)
+        x_pred = 1 / sqrt_alphas_cumprod_t * (x_noisy - sqrt_one_minus_alphas_cumprod_t * noise_pred)
+        
+        # Compute losses
+        stft_loss = F.l1_loss(self._mel_spec_and_process(torch.tanh(x_pred)), 
+                              self._mel_spec_and_process(torch.tanh(x_0)))
+        return {'diffusion_error_loss': F.l1_loss(noise, noise_pred),
                 'stft_loss': stft_loss}
+        
+        
+    def _mel_spec_and_process(self, x: torch.Tensor):
+        """
+        To prepare the mel spectrogram loss, everything needs to be prepared.
+
+        Args:
+            x (torch.Tensor): Input, will be flattened
+        """
+        lin_vector = torch.linspace(0.1, 5, self.mel_spec_config['n_mels'])
+        eye_mat = torch.diag(lin_vector).to(self.device)
+        mel_out = self.mel_spec(x.squeeze(1))
+        mel_out = torch.tanh(eye_mat @ mel_out)
+        return mel_out
     
     
     @torch.no_grad()
@@ -204,22 +232,33 @@ class DiffusionViT(BaseNetwork):
         """
         
         betas_t = get_index_from_list(self.diffusion_constants.betas, t, x.shape)
-        sqrt_one_minus_alphas_cumprod_t = get_index_from_list(
-            self.diffusion_constants.sqrt_one_minus_alphas_cumprod, t, x.shape
-        )
+        sqrt_one_minus_alphas_cumprod_t = get_index_from_list(self.diffusion_constants.sqrt_one_minus_alphas_cumprod, t, x.shape)
         sqrt_recip_alphas_t = get_index_from_list(self.diffusion_constants.sqrt_recip_alphas, t, x.shape)
         
         # Call model (current image - noise prediction)
-        model_mean = sqrt_recip_alphas_t * (
-            x - betas_t * self(x, t, conditional_list) / sqrt_one_minus_alphas_cumprod_t
-        )
+        model_mean = sqrt_recip_alphas_t * (x - 
+                                            betas_t * self(x, t, conditional_list) / sqrt_one_minus_alphas_cumprod_t)
         posterior_variance_t = get_index_from_list(self.diffusion_constants.posterior_variance, t, x.shape)
+        posterior_variance_t[t == 0] = 0
         
-        if t == 0:
-            return model_mean
-        else:
-            noise = torch.randn_like(x)
-            return model_mean + torch.sqrt(posterior_variance_t) * noise 
+        # print(sqrt_recip_alphas_t)
+        # print(betas_t)
+        # print(sqrt_one_minus_alphas_cumprod_t)
+        
+        # plt.figure(figsize=(25, 5))
+        # plt.plot((x[0, ...])[0, ...].squeeze(0).cpu().detach().numpy())
+        # plt.show()
+        
+        # plt.figure(figsize=(25, 5))
+        # plt.plot((self(x, t, conditional_list)[0, ...]).squeeze(0).cpu().detach().numpy())
+        # plt.show()
+        
+        # plt.figure(figsize=(25, 5))
+        # plt.plot((x[0, ...] - self(x, t, conditional_list)[0, ...]).squeeze(0).cpu().detach().numpy())
+        # plt.show()
+        
+        noise = torch.randn_like(x)
+        return model_mean + torch.sqrt(posterior_variance_t) * noise 
         
         
     @torch.no_grad()
@@ -234,9 +273,10 @@ class DiffusionViT(BaseNetwork):
         running_slice = noisy_input.clone()
         batch_size = noisy_input.shape[0]
         for time_step in reversed(range(self.num_steps)):
+            
             time_input = torch.tensor([time_step for _ in range(batch_size)]).to(self.device)
             running_slice = self.sample_timestep(running_slice, time_input, conditionals)
         
-        running_slice[running_slice < -1] = -1
-        running_slice[running_slice > 1] = 1
+        #running_slice[running_slice < -1] = -1
+        #running_slice[running_slice > 1] = 1
         return running_slice
