@@ -9,6 +9,7 @@ model:
   beta_factor: 0.5
   mel_factor: 100.0
   vocabulary_size: 32768
+  bottleneck_kernel_size: 9
   channel_dim_change_list: [2, 2, 2, 2, 2, 2]
   amp: False
 
@@ -16,7 +17,7 @@ learning:
   batch_size: 4
   learning_rate: 0.001
   weight_decay: 0.0
-  epochs: 20
+  epochs: 15
   gradient_clip: 0.5
   beta_ema: 0.9999
   monitored_loss: Validation total loss

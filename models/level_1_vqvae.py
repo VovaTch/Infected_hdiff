@@ -68,19 +68,21 @@ class Lvl1Encoder(nn.Module):
 class Lvl1Decoder(nn.Module):
     
     
-    def __init__(self, channel_list: List[int], dim_change_list: List[int], input_channels: int=1, sin_locations: List[int]=None):
+    def __init__(self, channel_list: List[int], dim_change_list: List[int], input_channels: int=1, sin_locations: List[int]=None,
+                 bottleneck_kernel_size: int=31):
         
         super().__init__()
         assert len(channel_list) == len(dim_change_list) + 1, "The channel list length must be greater than the dimension change list by 1"
+        assert bottleneck_kernel_size % 2 == 1, f"The bottleneck kernel size {bottleneck_kernel_size} must be an odd number"
         
         print(channel_list)
         
         # Create the module lists for the architecture
         self.end_conv = nn.Conv1d(channel_list[-1], input_channels, kernel_size=3, padding=1)
         self.conv_1d_end = nn.Sequential(
-            nn.Conv1d(1, channel_list[1], kernel_size=1),
+            nn.Conv1d(1, channel_list[1], kernel_size=bottleneck_kernel_size, padding=bottleneck_kernel_size // 2),
             nn.GELU(),
-            nn.Conv1d(channel_list[1], 1, kernel_size=1)
+            nn.Conv1d(channel_list[1], 1, kernel_size=bottleneck_kernel_size, padding=bottleneck_kernel_size // 2)
         )
         self.conv_list = nn.ModuleList(
             [ConvBlock1D(channel_list[idx], channel_list[idx + 1], 5) for idx in range(len(dim_change_list))]
@@ -149,6 +151,7 @@ class Lvl1VQVariationalAutoEncoder(BaseNetwork):
                  beta_factor: float=0.5,
                  mel_factor: float=100.0,
                  vocabulary_size: int=8192,
+                 bottleneck_kernel_size: int=31,
                  channel_dim_change_list: List[int] = [2, 2, 2, 4, 4],
                  **kwargs):
         
@@ -164,6 +167,7 @@ class Lvl1VQVariationalAutoEncoder(BaseNetwork):
         self.beta_factor = beta_factor
         self.vocabulary_size = vocabulary_size
         self.mel_factor = mel_factor
+        self.channel_dim_change_list = channel_dim_change_list
         
         # Initialize mel spectrogram, TODO: Might do multiple ones for multiple losses
         self.mel_spec = None
@@ -180,7 +184,8 @@ class Lvl1VQVariationalAutoEncoder(BaseNetwork):
         
         # Initialize network parts
         self.encoder = Lvl1Encoder(encoder_channel_list, encoder_dim_changes)
-        self.decoder = Lvl1Decoder(decoder_channel_list, decoder_dim_changes, sin_locations=sin_locations)
+        self.decoder = Lvl1Decoder(decoder_channel_list, decoder_dim_changes, sin_locations=sin_locations, 
+                                   bottleneck_kernel_size=bottleneck_kernel_size)
         self.vq_module = Lvl1VQ(latent_depth, num_tokens=vocabulary_size)
         
         

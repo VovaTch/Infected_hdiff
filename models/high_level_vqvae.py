@@ -2,6 +2,8 @@ from typing import List
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+from torchaudio.transforms import MelSpectrogram
 
 from .vq_codebook import VQCodebook
 from .level_1_vqvae import Lvl1VQ as HighLvlVQ
@@ -67,13 +69,21 @@ class HighLvlEncoder(nn.Module):
 class HighLvlDecoder(nn.Module):
     
     
-    def __init__(self, channel_list: List[int], dim_change_list: List[int], input_channels: int=1, sin_locations: List[int]=None):
+    def __init__(self, channel_list: List[int], dim_change_list: List[int], input_channels: int=1, sin_locations: List[int]=None,
+                 bottleneck_kernel_size: int=31):
         
         super().__init__()
         assert len(channel_list) == len(dim_change_list) + 1, "The channel list length must be greater than the dimension change list by 1"
         
         # Create the module lists for the architecture
         self.end_conv = nn.Conv2d(channel_list[-1], input_channels, kernel_size=(3, 3), padding=1)
+        self.conv_2d_end = nn.Sequential(
+            nn.Conv2d(1, channel_list[1], kernel_size=(bottleneck_kernel_size, bottleneck_kernel_size), 
+                      padding=bottleneck_kernel_size // 2),
+            nn.GELU(),
+            nn.Conv2d(channel_list[1], 1, kernel_size=(bottleneck_kernel_size, bottleneck_kernel_size), 
+                      padding=bottleneck_kernel_size // 2)
+        )
         self.conv_list = nn.ModuleList(
             [ConvBlock2D(channel_list[idx], channel_list[idx + 1], 5) for idx in range(len(dim_change_list))]
         )
@@ -99,7 +109,7 @@ class HighLvlDecoder(nn.Module):
             
         x_out = self.end_conv(z)
             
-        return x_out
+        return x_out + self.conv_2d_end(x_out)
     
     
 class HighLvlVQVariationalAutoEncoder(BaseNetwork):
@@ -115,6 +125,7 @@ class HighLvlVQVariationalAutoEncoder(BaseNetwork):
                  latent_depth: int,
                  beta_factor: float=0.5,
                  vocabulary_size: int=8192,
+                 bottleneck_kernel_size: int=5,
                  channel_dim_change_list: List[int] = [2, 2, 2, 2, 2, 2],
                  **kwargs):
         
@@ -140,6 +151,51 @@ class HighLvlVQVariationalAutoEncoder(BaseNetwork):
         
         # Initialize network parts
         self.encoder = HighLvlEncoder(encoder_channel_list, encoder_dim_changes)
-        self.decoder = HighLvlDecoder(decoder_channel_list, decoder_dim_changes, sin_locations=sin_locations)
+        self.decoder = HighLvlDecoder(decoder_channel_list, decoder_dim_changes, sin_locations=sin_locations, 
+                                      bottleneck_kernel_size=bottleneck_kernel_size)
         self.vq_module = HighLvlVQ(latent_depth, num_tokens=vocabulary_size)
+        
+    def forward(self, x: torch.Tensor, extract_losses: bool=False):
+        
+        z_e = self.encoder(x)
+        vq_block_output = self.vq_module(z_e, extract_losses=True)
+        x_out = self.decoder(vq_block_output['v_q'])
+        
+        total_output = {**vq_block_output,
+                        'output': x_out}
+        
+        if extract_losses:
+            total_output.update({'reconstruction_loss': F.mse_loss(x, x_out)})
+        
+        return total_output
+    
+    
+    def training_step(self, batch, batch_idx):
+        
+        music_slice = batch['encoded slice']
+        total_output = self.forward(music_slice, extract_losses=True)
+        total_loss = total_output['reconstruction_loss'] + total_output['alignment_loss'] +\
+            self.beta_factor * total_output['commitment_loss']
+            
+        for key, value in total_output.items():
+            if 'loss' in key.split('_'):
+                displayed_key = key.replace('_', ' ')
+                self.log(f'Training {displayed_key}', value)
+        self.log('Training total loss', total_loss)
+        
+        return total_loss
+    
+    
+    def validation_step(self, batch, batch_idx):
+        
+        music_slice = batch['encoded slice']
+        total_output = self.forward(music_slice, extract_losses=True)
+        total_loss = total_output['reconstruction_loss'] + total_output['alignment_loss'] +\
+            self.beta_factor * total_output['commitment_loss']
+            
+        for key, value in total_output.items():
+            if 'loss' in key.split('_'):
+                displayed_key = key.replace('_', ' ')
+                self.log(f'Validation {displayed_key}', value)
+        self.log('Validation total loss', total_loss, prog_bar=True)
     
