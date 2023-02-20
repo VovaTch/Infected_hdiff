@@ -73,17 +73,19 @@ class Lvl1Decoder(nn.Module):
         
         super().__init__()
         assert len(channel_list) == len(dim_change_list) + 1, "The channel list length must be greater than the dimension change list by 1"
-        assert bottleneck_kernel_size % 2 == 1, f"The bottleneck kernel size {bottleneck_kernel_size} must be an odd number"
+        assert bottleneck_kernel_size % 2 == 1 or bottleneck_kernel_size == 0, \
+            f"The bottleneck kernel size {bottleneck_kernel_size} must be an odd number or zero."
         
-        print(channel_list)
+        self.bottleneck_kernel_size = bottleneck_kernel_size
         
         # Create the module lists for the architecture
         self.end_conv = nn.Conv1d(channel_list[-1], input_channels, kernel_size=3, padding=1)
-        self.conv_1d_end = nn.Sequential(
-            nn.Conv1d(1, channel_list[1], kernel_size=bottleneck_kernel_size, padding=bottleneck_kernel_size // 2),
-            nn.GELU(),
-            nn.Conv1d(channel_list[1], 1, kernel_size=bottleneck_kernel_size, padding=bottleneck_kernel_size // 2)
-        )
+        if bottleneck_kernel_size != 0:
+            self.conv_1d_end = nn.Sequential(
+                nn.Conv1d(1, channel_list[1], kernel_size=bottleneck_kernel_size, padding=bottleneck_kernel_size // 2),
+                nn.GELU(),
+                nn.Conv1d(channel_list[1], 1, kernel_size=bottleneck_kernel_size, padding=bottleneck_kernel_size // 2)
+            )
         self.conv_list = nn.ModuleList(
             [ConvBlock1D(channel_list[idx], channel_list[idx + 1], 5) for idx in range(len(dim_change_list))]
         )
@@ -109,7 +111,7 @@ class Lvl1Decoder(nn.Module):
             
         x_out = self.end_conv(z)
             
-        return x_out + self.conv_1d_end(x_out)
+        return x_out + self.conv_1d_end(x_out) if self.bottleneck_kernel_size != 0 else x_out
 
 
 class Lvl1VQ(nn.Module):
