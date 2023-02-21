@@ -26,7 +26,8 @@ class MP3SliceDataset(Dataset):
                  n_melts_per_second: int=64,
                  device: str="cpu",
                  preload: bool=True,
-                 preload_file_path: str='data/music_samples/000-datatensor.pt',
+                 preload_data_file_path: str='data/music_samples/000-datatensor.pt',
+                 preload_metadata_file_path: str='data/music_samples/000-metadata.pkl',
                  **kwargs):
         
         # Initialize the object variables
@@ -47,6 +48,7 @@ class MP3SliceDataset(Dataset):
         # Create a file list
         self.processed_slice_data = None
         self.file_list = []
+        self.metadata = []
         for file in os.listdir(self.audio_dir):
             if file.endswith("mp3"):
                 self.file_list.append(os.path.join(self.audio_dir, file))
@@ -54,23 +56,33 @@ class MP3SliceDataset(Dataset):
             
             # self.processed_slice_data = self._create_music_slices(self.file_list).squeeze(0).to(device)
             
+            # Load pt file if exists
+            if os.path.isfile(preload_data_file_path):
+                print(f'Loading file {preload_data_file_path}...')
+                self.processed_slice_data = torch.load(preload_data_file_path)
+                print(f'Music file {preload_data_file_path} is loaded.')
+                
+            # Save pt file if not
+            else:
+                self.processed_slice_data, self.metadata = self._create_music_slices(self.file_list)
+                self.processed_slice_data = self.processed_slice_data.squeeze(0).to(device)
+                torch.save(self.processed_slice_data, preload_data_file_path)
+                print(f'Saved music file at {preload_data_file_path}')
+                
             # Load pickle file if exists
-            if os.path.isfile(preload_file_path):
-                print(f'Loading file {preload_file_path}...')
-                self.processed_slice_data = torch.load(preload_file_path)
-                
-                
-                # with open(preload_file_path, 'rb') as f:
-                #     self.processed_slice_data = pickle.load(f)
-                print(f'Music file {preload_file_path} is loaded.')
+            if os.path.isfile(preload_metadata_file_path):
+                print(f'Loading file {preload_metadata_file_path}...')
+                with open(preload_metadata_file_path, 'rb') as f:
+                    self.metadata = pickle.load(f)
+                print(f'Music file {preload_metadata_file_path} is loaded.')
                 
             # Save pickle file if not
             else:
-                self.processed_slice_data = self._create_music_slices(self.file_list).squeeze(0).to(device)
-                torch.save(self.processed_slice_data, preload_file_path)
-                # with open(preload_file_path, 'wb') as f:
-                #     pickle.dump(self.processed_slice_data, f)
-                print(f'Saved music file at {preload_file_path}')
+                if self.metadata is None:
+                    _, self.metadata = self._create_music_slices(self.file_list).squeeze(0).to(device)
+                with open(preload_metadata_file_path, 'wb') as f:
+                    pickle.dump(self.metadata, f)    
+                print(f'Saved music file at {preload_metadata_file_path}')
         
     def _create_music_slices(self, file_list: List[str]):
         """
@@ -78,23 +90,26 @@ class MP3SliceDataset(Dataset):
         """
         
         total_slices = torch.zeros((1, 0, self.total_samples_per_slice))
+        track_name_list = []
         
         for file in tqdm.tqdm(file_list, desc='Loading music slices...'):
-            slices = self._load_slices_from_track(file)
+            slices, track_name = self._load_slices_from_track(file)
+            track_name_list += track_name
             total_slices = torch.cat((total_slices, slices), dim=1)
             
-        return total_slices
+        return total_slices, track_name_list 
             
             
-    def _load_slices_from_track(self, file):
+    def _load_slices_from_track(self, file: str):
         
         long_data, sr = torchaudio.load(file, format="mp3")
         long_data = self._resample_if_necessary(long_data, sr)
         long_data = self._mix_down_if_necessary(long_data)
         long_data = self._right_pad_if_necessary(long_data)
         slices = long_data.view((1, -1, self.total_samples_per_slice))
+        track_name_list = [[file] for _ in range(slices.shape[1])]
         
-        return slices
+        return slices, track_name_list
 
             
     def _resample_if_necessary(self, signal: torch.Tensor, sr: int):
@@ -122,13 +137,15 @@ class MP3SliceDataset(Dataset):
         
         if self.preload:
             slice = self.processed_slice_data[idx]
+            track_name = self.metadata[idx]
         else:
             file_choice = random.choice(self.file_list)
-            slices = self._load_slices_from_track(file_choice).squeeze(0)
+            slices, track_name_repeated = self._load_slices_from_track(file_choice).squeeze(0)
             slice_choice = random.choice(list(range(0, slices.shape[0])))
             slice = slices[slice_choice, ...]
+            track_name = track_name_repeated[0]
         
-        return {'music slice': slice.unsqueeze(0).to(self.device)}
+        return {'music slice': slice.unsqueeze(0).to(self.device), 'track name': track_name[0]}
     
     def __len__(self):
         return self.processed_slice_data.shape[0] if self.preload else 100
