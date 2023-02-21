@@ -1,5 +1,5 @@
 model:
-  name: vqvae_lvl_1
+  name: vqvae_lvl_2
   sample_rate: 44100
   slice_length: 0.7430386 # Length of slice to get 2^15 samples
   # slice_length: 5.0 # Length of slice to get 2^15 samples
@@ -8,11 +8,12 @@ model:
   latent_depth: 8
   beta_factor: 0.5
   mel_factor: 100.0
-  vocabulary_size: 32768
+  vocabulary_size: 8192
   bottleneck_kernel_size: 0
   channel_dim_change_list: [2, 2, 2, 2, 2, 2]
   amp: False
-  input_channels: 1
+  input_channels: 8
+
 
 learning:
   batch_size: 4
@@ -21,18 +22,8 @@ learning:
   epochs: 15
   gradient_clip: 0.5
   beta_ema: 0.9999
+  eval_split_factor: 0.01
   monitored_loss: Validation total loss
   dataset_path: data/music_samples/
   scheduler_type: 'one_cycle_lr'
   dataset_name: 'music_slice_dataset'
-  eval_split_factor: 0.01
-
-mel_spec_config:
-  n_fft: 512
-  hop_length: 128
-  n_mels: 128
-  pad_mode: reflect
-  power: 1.0
-  norm: "slaney"
-  mel_scale: "htk"
-  

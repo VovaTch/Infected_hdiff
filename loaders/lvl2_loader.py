@@ -1,15 +1,12 @@
 from typing import TYPE_CHECKING
 import os
-from typing import List
-import tempfile
 import random
 
 import torch
 import torch.nn.functional as F
-import torchaudio
-import torchaudio.transforms as T
 from torch.utils.data import Dataset, DataLoader
 import tqdm
+import pickle
 
 if TYPE_CHECKING:
     from .music_loader import MP3SliceDataset
@@ -32,6 +29,7 @@ class Lvl2InputDataset(Dataset):
                  device: str="cpu",
                  preload: bool=True,
                  preload_file_path: str="data/music_samples/001-datatensor.bt",
+                 preload_metadata_file_path: str='data/music_samples/001-metadata.pkl',
                  **kwargs):
         
         # Initialize the object variables
@@ -55,28 +53,71 @@ class Lvl2InputDataset(Dataset):
             # Save pt file if it doesn't
             else:
                 assert lvl1_vqvae is not None and lvl1_dataset is not None, 'If no dataset file exists, must have vqvae and dataset.'
-                self.processed_slice_data = self._create_lvl1_latents()
+                self.processed_slice_data, self.metadata = self._create_lvl1_latents()
+                self.processed_slice_data = self.processed_slice_data.to(device)
                 torch.save(self.processed_slice_data, preload_file_path)
                 print(f'Saved music file at {preload_file_path}')
                 
+            # Load pickle file if exists
+            if os.path.isfile(preload_metadata_file_path):
+                print(f'Loading file {preload_metadata_file_path}...')
+                with open(preload_metadata_file_path, 'rb') as f:
+                    self.metadata = pickle.load(f)
+                print(f'Music file {preload_metadata_file_path} is loaded.')
                 
+            # Save pickle file if not
+            else:
+                if self.metadata is None:
+                    _, self.metadata = self._create_lvl1_latents()
+                with open(preload_metadata_file_path, 'wb') as f:
+                    pickle.dump(self.metadata, f)    
+                print(f'Saved music file at {preload_metadata_file_path}')
+                
+        else:
+            assert lvl1_vqvae is not None and lvl1_dataset is not None, 'When not preloading the lvl1 vqvae and the dataset must be set.'
+                
+    
+    @torch.no_grad()
     def _create_lvl1_latents(self):
         """
         Runs the level 1 vqvae network to create the latents and save them.
         """
         
         width, length = self._compute_latent_dims()
-        data_collector = torch.zeros((0, self.collection_parameter, width, length)).to(self.device)
+        data_collector = torch.zeros((0, width, length * self.collection_parameter)).to(self.device)
         loader = DataLoader(self.lvl1_dataset, batch_size=1)
+        
+        # Initialize running variables
         prev_track_name = None
-        for idx, batch in tqdm(tqdm(enumerate(loader)), 'Loading music slices...'):
-            music_slice, current_track_name = batch['music slice'].to(self.device), 
-            latent = self.lvl1_vqvae(music_slice)
+        latent_collector = None
+        running_idx = 0
+        track_name_list = []
+        
+        for batch in tqdm.tqdm(loader, 'Loading music slices...'):
+            music_slice, current_track_name = batch['music slice'].to(self.device), batch['track name'][0]
+            latent = self.lvl1_vqvae(music_slice).unsqueeze(0)
             
+            # If the collector is filled, reset the collector
+            if running_idx % self.collection_parameter == 0:
+                if latent_collector is not None:
+                    data_collector = torch.cat((data_collector, latent_collector.unsqueeze(0)), dim=0)
+                    track_name_list.append([current_track_name])
+                latent_collector = torch.zeros(width, 0).to(self.device)
+                running_idx = 0
+                
+            latent_collector = torch.cat((latent_collector, latent), dim=1)
+            running_idx += 1
             
-            
-            data_collector = torch.cat((data_collector, latent), dim=0)
-            
+            # If the track switches, pad and reset the latent collector
+            if prev_track_name is None or current_track_name == prev_track_name:
+                padding = length * self.collection_parameter - latent_collector.shape[2]
+                latent_collector = F.pad(latent_collector, (0, padding))
+                data_collector = torch.cat((data_collector, latent_collector.unsqueeze(0)), dim=0)
+                track_name_list.append([current_track_name])
+                latent_collector = torch.zeros(width, 0).to(self.device)
+                running_idx = 0
+                
+        return data_collector, track_name_list
         
         
     def _compute_latent_dims(self):
@@ -87,4 +128,18 @@ class Lvl2InputDataset(Dataset):
         width = self.lvl1_vqvae.latent_depth
         
         return width, length
+    
+    
+    def __len__(self):
+        return self.processed_slice_data.shape[0] if self.preload else 100
+    
+    
+    def __getitem__(self, idx):
+        
+        if self.preload:
+            slice = self.processed_slice_data[idx]
+            track_name = self.metadata[idx]
+        else:
+            raise NotImplemented('Currently this dataset only functions with preloading')
             
+        return {'lvl2 slice': slice.to(self.device), 'track name': track_name[0]}
