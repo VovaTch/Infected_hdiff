@@ -34,7 +34,7 @@ class Lvl2InputDataset(Dataset):
         
         # Initialize the object variables
         super().__init__()
-        self.lvl1_dataset = lvl1_dataset.processed_slice_data
+        self.lvl1_dataset = lvl1_dataset
         self.lvl1_vqvae = lvl1_vqvae
         self.device = device
         self.preload = preload

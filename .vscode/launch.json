@@ -63,6 +63,16 @@
         },
 
         {
+            "name": "Python: Create Lvl2 Dataset",
+            "type": "python",
+            "request": "launch",
+            "module": "scripts.create_lvl2_dataset",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": ["-d", "cuda"]
+        },
+
+        {
             "name": "Python: Test",
             "type": "python",
             "request": "launch",
