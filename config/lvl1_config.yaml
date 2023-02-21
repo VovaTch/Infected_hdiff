@@ -9,7 +9,7 @@ model:
   beta_factor: 0.5
   mel_factor: 100.0
   vocabulary_size: 32768
-  bottleneck_kernel_size: 9
+  bottleneck_kernel_size: 0
   channel_dim_change_list: [2, 2, 2, 2, 2, 2]
   amp: False
 
