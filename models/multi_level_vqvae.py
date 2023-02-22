@@ -32,7 +32,7 @@ class ConvBlock1D(nn.Module):
         
 
 
-class Lvl1Encoder(nn.Module):
+class Encoder1D(nn.Module):
     """
     Encoder class for the level 1 auto-encoder, this is constructed in a VAE manner.
     """
@@ -65,7 +65,7 @@ class Lvl1Encoder(nn.Module):
         return x
 
 
-class Lvl1Decoder(nn.Module):
+class Decoder1D(nn.Module):
     
     
     def __init__(self, channel_list: List[int], dim_change_list: List[int], input_channels: int=1, sin_locations: List[int]=None,
@@ -114,7 +114,7 @@ class Lvl1Decoder(nn.Module):
         return x_out + self.conv_1d_end(x_out) if self.bottleneck_kernel_size != 0 else x_out
 
 
-class Lvl1VQ(nn.Module):
+class VQ1D(nn.Module):
     
     
     def __init__(self, token_dim, num_tokens: int=8192):
@@ -139,7 +139,7 @@ class Lvl1VQ(nn.Module):
         
 
 
-class Lvl1VQVariationalAutoEncoder(BaseNetwork):
+class MultiLvlVQVariationalAutoEncoder(BaseNetwork):
     """
     VQ VAE that takes a music sample and converts it into latent space, hopefully faithfully reconstructing it later.
     This latent space is then used for the lowest level sample generation in a DiT like fashion.
@@ -186,10 +186,10 @@ class Lvl1VQVariationalAutoEncoder(BaseNetwork):
         sin_locations = None
         
         # Initialize network parts
-        self.encoder = Lvl1Encoder(encoder_channel_list, encoder_dim_changes, input_channels=input_channels)
-        self.decoder = Lvl1Decoder(decoder_channel_list, decoder_dim_changes, sin_locations=sin_locations, 
+        self.encoder = Encoder1D(encoder_channel_list, encoder_dim_changes, input_channels=input_channels)
+        self.decoder = Decoder1D(decoder_channel_list, decoder_dim_changes, sin_locations=sin_locations, 
                                    bottleneck_kernel_size=bottleneck_kernel_size, input_channels=input_channels)
-        self.vq_module = Lvl1VQ(latent_depth, num_tokens=vocabulary_size)
+        self.vq_module = VQ1D(latent_depth, num_tokens=vocabulary_size)
         
         
     def forward(self, x: torch.Tensor, extract_losses: bool=False):
@@ -258,5 +258,5 @@ class Lvl1VQVariationalAutoEncoder(BaseNetwork):
     
 if __name__ == "__main__":
     
-    vae = Lvl1VQVariationalAutoEncoder(44100, 5.0, 64, 16, 0.001, 0.01)
+    vae = MultiLvlVQVariationalAutoEncoder(44100, 5.0, 64, 16, 0.001, 0.01)
     

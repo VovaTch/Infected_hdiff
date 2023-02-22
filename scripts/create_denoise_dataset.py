@@ -2,7 +2,7 @@ import argparse
 
 import torch
 
-from models.level_1_vqvae import Lvl1VQVariationalAutoEncoder
+from models.multi_level_vqvae import MultiLvlVQVariationalAutoEncoder
 from utils.other import load_cfg_dict
 import loaders
 
@@ -13,7 +13,7 @@ def main(args):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     config_path = args.config if args.config is not None else 'config/lvl1_config.yaml'
     cfg = load_cfg_dict(config_path)
-    model = Lvl1VQVariationalAutoEncoder(**cfg).to(device=device)
+    model = MultiLvlVQVariationalAutoEncoder(**cfg).to(device=device)
     if args.resume is not None:
         model = model.load_from_checkpoint(args.resume, **cfg, strict=False).to(device=device)
         

@@ -6,7 +6,7 @@ import torch.nn.functional as F
 from torchaudio.transforms import MelSpectrogram
 
 from .vq_codebook import VQCodebook
-from .level_1_vqvae import Lvl1VQ as HighLvlVQ
+from .multi_level_vqvae import VQ1D as HighLvlVQ
 from .base import BaseNetwork
 import loaders
 

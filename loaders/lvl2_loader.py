@@ -10,7 +10,7 @@ import pickle
 
 if TYPE_CHECKING:
     from .music_loader import MP3SliceDataset
-    from models.level_1_vqvae import Lvl1VQVariationalAutoEncoder
+    from models.multi_level_vqvae import MultiLvlVQVariationalAutoEncoder
 
 
 SLICE_LENGTH = 32768 # TODO: make it not hardcoded
@@ -25,7 +25,7 @@ class Lvl2InputDataset(Dataset):
     def __init__(self,
                  collection_parameter: int=8,
                  lvl1_dataset: 'MP3SliceDataset'=None,
-                 lvl1_vqvae: 'Lvl1VQVariationalAutoEncoder'=None,
+                 lvl1_vqvae: 'MultiLvlVQVariationalAutoEncoder'=None,
                  device: str="cpu",
                  preload: bool=True,
                  preload_file_path: str="data/music_samples/001-datatensor.bt",

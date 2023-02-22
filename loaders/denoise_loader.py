@@ -9,13 +9,13 @@ import numpy as np
 
 if TYPE_CHECKING:
     from .music_loader import MP3SliceDataset
-    from models.level_1_vqvae import Lvl1VQVariationalAutoEncoder
+    from models.multi_level_vqvae import MultiLvlVQVariationalAutoEncoder
 
 
 class DenoiseDataset(Dataset):
     
     def __init__(self,
-                 vqvae: 'Lvl1VQVariationalAutoEncoder',
+                 vqvae: 'MultiLvlVQVariationalAutoEncoder',
                  music_loader: 'MP3SliceDataset',
                  loader_batch_size: int=8,
                  preload_file_path: str='data/lvl1_outs_tensor.pt',

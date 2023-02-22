@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from torchaudio.transforms import MelSpectrogram
 
 import loaders
-from models.level_1_vqvae import Lvl1VQVariationalAutoEncoder
+from models.multi_level_vqvae import MultiLvlVQVariationalAutoEncoder
 from .base import BaseNetwork
 
 
@@ -20,7 +20,7 @@ class WaveUNet_Denoiser(BaseNetwork):
                  filter_size_encoder: int, 
                  filter_size_decoder: int,
                  mel_factor: float=100.0,
-                 lvl1_vqvae: Lvl1VQVariationalAutoEncoder=None,
+                 lvl1_vqvae: MultiLvlVQVariationalAutoEncoder=None,
                  num_input_channels: int=1,
                  num_filters: int=1,
                  **kwargs):

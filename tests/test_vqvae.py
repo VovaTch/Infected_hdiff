@@ -2,7 +2,7 @@ import torch
 from torch.utils.data import DataLoader
 import unittest
 
-from models.level_1_vqvae import Lvl1VQVariationalAutoEncoder
+from models.multi_level_vqvae import MultiLvlVQVariationalAutoEncoder
 from utils.other import load_cfg_dict
 from loaders.music_loader import MP3SliceDataset
 
@@ -13,7 +13,7 @@ class TestLvl1VQVAE_cpu(unittest.TestCase):
         # Load model
         cfg_path = 'config/lvl1_config.yaml'
         self.cfg = load_cfg_dict(cfg_path)
-        self.model = Lvl1VQVariationalAutoEncoder(**self.cfg)
+        self.model = MultiLvlVQVariationalAutoEncoder(**self.cfg)
         self.cfg['batch_size'] = 1
         
         # Load dataset
@@ -49,7 +49,7 @@ class TestLvl1VQVAE_gpu(unittest.TestCase):
         # Load model
         cfg_path = 'config/lvl1_config.yaml'
         self.cfg = load_cfg_dict(cfg_path)
-        self.model = Lvl1VQVariationalAutoEncoder(**self.cfg).to(device='cuda')
+        self.model = MultiLvlVQVariationalAutoEncoder(**self.cfg).to(device='cuda')
         self.cfg['batch_size'] = 1
         
         # Load dataset

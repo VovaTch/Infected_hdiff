@@ -3,7 +3,7 @@ import argparse
 from torch.utils.data import DataLoader
 
 from loaders.lvl2_loader import Lvl2InputDataset
-from models.level_1_vqvae import Lvl1VQVariationalAutoEncoder
+from models.multi_level_vqvae import MultiLvlVQVariationalAutoEncoder
 from utils.other import load_cfg_dict
 
 
@@ -16,7 +16,7 @@ def main(args):
     cfg_2 = load_cfg_dict(args.config2)
     
     # Load vqvae model
-    vqvae = Lvl1VQVariationalAutoEncoder(**cfg_1)
+    vqvae = MultiLvlVQVariationalAutoEncoder(**cfg_1)
     vqvae = vqvae.load_from_checkpoint(args.resume, **cfg_1).to(device)
     vqvae._set_dataset()
     print(f'Loaded model from {args.resume}.')

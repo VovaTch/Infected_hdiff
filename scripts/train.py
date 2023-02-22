@@ -1,7 +1,7 @@
 import argparse
 import sys
 
-from models.level_1_vqvae import Lvl1VQVariationalAutoEncoder
+from models.multi_level_vqvae import MultiLvlVQVariationalAutoEncoder
 from models.unet_denoiser import WaveUNet_Denoiser
 from models.diffusion_vit import DiffusionViT
 from utils.other import load_cfg_dict, initialize_trainer
@@ -19,7 +19,7 @@ def train_lvl_1_encoder(args):
     # Load model
     config_path = args.config if args.config is not None else 'config/lvl1_config.yaml'
     cfg = load_cfg_dict(config_path)
-    model = Lvl1VQVariationalAutoEncoder(**cfg)
+    model = MultiLvlVQVariationalAutoEncoder(**cfg)
     if args.resume is not None:
         model = model.load_from_checkpoint(args.resume, **cfg, strict=False)
         
@@ -45,7 +45,7 @@ def train_denoiser(args):
     # Load saved vqvae
     lvl1_config_path = 'config/lvl1_config.yaml'
     lvl1_cfg = load_cfg_dict(lvl1_config_path)
-    lvl1_vqvae = Lvl1VQVariationalAutoEncoder(**lvl1_cfg)
+    lvl1_vqvae = MultiLvlVQVariationalAutoEncoder(**lvl1_cfg)
     lvl1_vqvae = lvl1_vqvae.load_from_checkpoint('model_weights/lvl1_vqvae.ckpt', **lvl1_cfg).requires_grad_(False)
     
     # Load model
