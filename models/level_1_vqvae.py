@@ -203,8 +203,9 @@ class Lvl1VQVariationalAutoEncoder(BaseNetwork):
         
         if extract_losses:
             total_output.update({'reconstruction_loss': F.mse_loss(x, x_out)})
-            total_output.update({'stft_loss': F.mse_loss(self._mel_spec_and_process(x), 
-                                                         self._mel_spec_and_process(x_out))})
+            if self.mel_spec is not None:
+                total_output.update({'stft_loss': F.mse_loss(self._mel_spec_and_process(x), 
+                                                            self._mel_spec_and_process(x_out))})
         
         return total_output
     
@@ -218,7 +219,7 @@ class Lvl1VQVariationalAutoEncoder(BaseNetwork):
         """
         lin_vector = torch.linspace(0.1, 5, self.mel_spec_config['n_mels'])
         eye_mat = torch.diag(lin_vector).to(self.device)
-        mel_out = self.mel_spec(x.squeeze(1))
+        mel_out = self.mel_spec(x.flatten(start_dim=0, end_dim=1))
         mel_out = torch.tanh(eye_mat @ mel_out)
         return mel_out
         
