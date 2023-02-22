@@ -17,8 +17,8 @@ def main(args):
     
     # Load vqvae model
     vqvae = Lvl1VQVariationalAutoEncoder(**cfg_1)
-    vqvae._set_dataset()
     vqvae = vqvae.load_from_checkpoint(args.resume, **cfg_1).to(device)
+    vqvae._set_dataset()
     print(f'Loaded model from {args.resume}.')
     
     # Load the lvl2 dataset
@@ -29,6 +29,9 @@ def main(args):
     for batch in loader:
         print(f"File name is {batch['track name']}")
         print(f"The size of the slice is {batch['lvl2 slice'].shape}")
+        break
+    
+    print(f'Finished saving the dataset.')
 
 
 if __name__ == "__main__":

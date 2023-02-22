@@ -75,6 +75,8 @@ class Lvl2InputDataset(Dataset):
                 
         else:
             assert lvl1_vqvae is not None and lvl1_dataset is not None, 'When not preloading the lvl1 vqvae and the dataset must be set.'
+            
+        del self.lvl1_vqvae
                 
     
     @torch.no_grad()
@@ -95,7 +97,8 @@ class Lvl2InputDataset(Dataset):
         
         for batch in tqdm.tqdm(loader, 'Loading music slices...'):
             music_slice, current_track_name = batch['music slice'].to(self.device), batch['track name'][0]
-            latent = self.lvl1_vqvae(music_slice).unsqueeze(0)
+            latent = self.lvl1_vqvae.encoder(music_slice)
+            latent = self.lvl1_vqvae.vq_module(latent)['v_q']
             
             # If the collector is filled, reset the collector
             if running_idx % self.collection_parameter == 0:
@@ -105,17 +108,19 @@ class Lvl2InputDataset(Dataset):
                 latent_collector = torch.zeros(width, 0).to(self.device)
                 running_idx = 0
                 
-            latent_collector = torch.cat((latent_collector, latent), dim=1)
+            latent_collector = torch.cat((latent_collector, latent.squeeze(0)), dim=1)
             running_idx += 1
             
             # If the track switches, pad and reset the latent collector
-            if prev_track_name is None or current_track_name == prev_track_name:
-                padding = length * self.collection_parameter - latent_collector.shape[2]
+            if prev_track_name is not None and current_track_name != prev_track_name:
+                padding = length * self.collection_parameter - latent_collector.shape[1]
                 latent_collector = F.pad(latent_collector, (0, padding))
                 data_collector = torch.cat((data_collector, latent_collector.unsqueeze(0)), dim=0)
                 track_name_list.append([current_track_name])
-                latent_collector = torch.zeros(width, 0).to(self.device)
+                latent_collector = None
                 running_idx = 0
+                
+            prev_track_name = current_track_name
                 
         return data_collector, track_name_list
         
@@ -127,7 +132,7 @@ class Lvl2InputDataset(Dataset):
             length /= dim_change
         width = self.lvl1_vqvae.latent_depth
         
-        return width, length
+        return int(width), int(length)
     
     
     def __len__(self):
