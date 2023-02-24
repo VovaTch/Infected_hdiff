@@ -85,7 +85,6 @@ class DiffusionViT(BaseNetwork):
         self.positional_encoding = SinusoidalPositionEmbeddings(self.hidden_size // num_heads)
         self.fc_out = nn.Linear(hidden_size, in_dim * token_collect_size)
         self.empty_embedding = nn.Embedding(num_embeddings=1, embedding_dim=hidden_size)
-        self.timestep_embedding = nn.Embedding(num_embeddings=num_steps, embedding_dim=hidden_size)
         
         # Time embedding
         self.time_mlp = nn.Sequential(
@@ -175,7 +174,7 @@ class DiffusionViT(BaseNetwork):
             total_cond = self.empty_embedding(empty_index).unsqueeze(1) # BS x 1 x h
             
         # Prepare timestep embeddings
-        t_emb = self.timestep_embedding(t.int()).unsqueeze(1)
+        t_emb = self.time_mlp(t.int()).unsqueeze(1)
         
         # Prepare inputs to the transformer
         x = self.fc_in(x) + pos_emb_in # BS x bl x h
@@ -317,5 +316,9 @@ class DiffusionViT(BaseNetwork):
             time_input = torch.tensor([time_step for _ in range(batch_size)]).to(self.device)
             running_slice = self.sample_timestep(running_slice, time_input, conditionals)
             running_slice = torch.tanh(running_slice)
+            
+            plt.figure(figsize=(25, 5))
+            plt.plot(running_slice[0, ...].squeeze(0).cpu().detach().numpy())
+            plt.show()
         
         return running_slice
