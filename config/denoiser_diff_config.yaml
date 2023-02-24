@@ -13,7 +13,7 @@ model:
   amp: True
 
 learning:
-  batch_size: 16
+  batch_size: 8
   learning_rate: 0.001
   weight_decay: 0.01
   epochs: 20

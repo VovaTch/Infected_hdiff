@@ -1,4 +1,5 @@
 from typing import List, Optional
+import math
 
 import torch
 import torch.nn as nn
@@ -21,40 +22,20 @@ def get_emb(sin_inp: torch.Tensor):
     return torch.flatten(emb, -2, -1)
 
 
-class PositionalEncoding1D(nn.Module):
-    def __init__(self, channels):
-        """
-        :param channels: The last dimension of the tensor you want to apply pos emb to.
-        """
-        super(PositionalEncoding1D, self).__init__()
-        self.org_channels = channels
-        channels = int(np.ceil(channels / 2) * 2)
-        self.channels = channels
-        inv_freq = 1.0 / (10000 ** (torch.arange(0, channels, 2).float() / channels))
-        self.register_buffer("inv_freq", inv_freq)
-        self.cached_penc = None
+class SinusoidalPositionEmbeddings(nn.Module):
+    def __init__(self, dim):
+        super().__init__()
+        self.dim = dim
 
-    def forward(self, tensor: torch.Tensor):
-        """
-        :param tensor: A 3d tensor of size (batch_size, x, ch)
-        :return: Positional Encoding Matrix of size (batch_size, x, ch)
-        """
-        if len(tensor.shape) != 3:
-            raise RuntimeError("The input tensor has to be 3d!")
-
-        if self.cached_penc is not None and self.cached_penc.shape == tensor.shape:
-            return self.cached_penc
-
-        self.cached_penc = None
-        batch_size, x, orig_ch = tensor.shape
-        pos_x = torch.arange(x, device=tensor.device).type(self.inv_freq.type())
-        sin_inp_x = torch.einsum("i,j->ij", pos_x, self.inv_freq)
-        emb_x = get_emb(sin_inp_x)
-        emb = torch.zeros((x, self.channels), device=tensor.device).type(tensor.type())
-        emb[:, : self.channels] = emb_x
-
-        self.cached_penc = emb[None, :, :orig_ch].repeat(batch_size, 1, 1)
-        return self.cached_penc
+    def forward(self, time):
+        device = time.device
+        half_dim = self.dim // 2
+        embeddings = math.log(10000) / (half_dim - 1)
+        embeddings = torch.exp(torch.arange(half_dim, device=device) * -embeddings)
+        embeddings = time[:, None] * embeddings[None, :]
+        embeddings = torch.cat((embeddings.sin(), embeddings.cos()), dim=-1)
+        # TODO: Double check the ordering here
+        return embeddings
 
 
 class DiffusionViT(BaseNetwork):
@@ -101,10 +82,61 @@ class DiffusionViT(BaseNetwork):
         self.transformer_layer = nn.TransformerDecoderLayer(d_model=self.hidden_size, nhead=num_heads, 
                                                             batch_first=True, dropout=dropout, norm_first=True)
         self.transformer = nn.TransformerDecoder(self.transformer_layer, num_layers=num_blocks)
-        self.positional_encoding = PositionalEncoding1D(self.hidden_size)
+        self.positional_encoding = SinusoidalPositionEmbeddings(self.hidden_size // num_heads)
         self.fc_out = nn.Linear(hidden_size, in_dim * token_collect_size)
         self.empty_embedding = nn.Embedding(num_embeddings=1, embedding_dim=hidden_size)
         self.timestep_embedding = nn.Embedding(num_embeddings=num_steps, embedding_dim=hidden_size)
+        
+        # Time embedding
+        self.time_mlp = nn.Sequential(
+                SinusoidalPositionEmbeddings(hidden_size),
+                nn.Linear(hidden_size, hidden_size),
+                nn.ReLU()
+            )
+        
+        
+    def _patchify(self, x: torch.Tensor):
+        """
+        Apparently the view function doesn't produce the required result. As such, this function reshapes x in the required patch shape.
+        """
+        
+        # Create the reshaped tensor
+        x = self._right_pad_if_necessary(x.transpose(1, 2)).transpose(1, 2)
+        x_size = x.size() # BS x C x W, we want BS x C*bl x bl
+        x_required_size = [x_size[0], self.token_collect_size * x_size[1], x_size[2] // self.token_collect_size]
+        x_reshaped = torch.zeros(x_required_size).to(self.device)
+        
+        # Fit the data into the required shape
+        for block_idx in range(x_required_size[2]):
+            data_slice = x[:, :, block_idx * self.token_collect_size: (block_idx + 1) * self.token_collect_size]
+            x_reshaped[:, :, block_idx] = data_slice.transpose(1, 2).flatten(start_dim=1)
+            
+        # Return the reshaped tensor
+        return x_reshaped.transpose(1, 2) # BS x bl x C * W / bl
+    
+    
+    def _depatchify(self, x_reshaped: torch.Tensor):
+        """
+        After patching, this function reverses the patching process in _patchify. Assumes x_reshaped is BS x C * W / bl x bl
+        """
+        
+        # Create the origin tensor shape
+        x_reshaped = x_reshaped.transpose(1, 2)
+        x_reshaped_size = x_reshaped.size() # BS x C * W / bl x bl
+        x_required_size = [x_reshaped_size[0], 
+                           x_reshaped_size[1] // self.token_collect_size, 
+                           x_reshaped_size[2] * self.token_collect_size]
+        x = torch.zeros(x_required_size).to(self.device)
+        
+        # Fit the data into the required shape
+        for block_idx in range(x_reshaped_size[2]):
+            data_slice = x_reshaped[:, :, block_idx]
+            intermediate_block = data_slice.view((x_required_size[0], self.token_collect_size, x_required_size[1]))
+            x[:, :, block_idx * self.token_collect_size: (block_idx + 1) * self.token_collect_size] =\
+                intermediate_block.transpose(1, 2)
+                
+        # Return the tensor with the original shape
+        return x
         
         
     def forward(self, x: torch.Tensor, t: torch.Tensor, cond: List[torch.Tensor]=None):
@@ -112,22 +144,32 @@ class DiffusionViT(BaseNetwork):
         Forward method starts with x: BS x C x W, t: BS
         """
         
+        # Prepare positional embeddings
+        pos_emb_range = torch.arange(0, x.shape[2] // self.token_collect_size).to(self.device)
+        pos_emb_mat = self.positional_encoding(pos_emb_range)
+        pos_emb_in = pos_emb_mat.unsqueeze(0).repeat((x.shape[0], 1, self.num_heads))
+        
         # Transpose and divide the input into chunks
-        x = x.transpose(1, 2) # BS x W x C
-        in_shape = x.shape
-        x = self._right_pad_if_necessary(x) # BS x W+ x C
-        x = x.view((x.shape[0], -1, self.in_dim * self.token_collect_size)) # BS x W+/bl * C*bl
+        x = self._patchify(x) # BS x bl x C*W/bl
         
         # Transpose and device the conditionals into chunks
         if cond is not None:
             cond_list = []
+            pos_emb_cond = torch.zeros((x.shape[0], 0, self.hidden_size // self.num_heads)).to(self.device)
+            
+            # Run over all the conditional and prepare the positional encoding
             for ind_cond in cond:
-                cond_list.append(torch.zeros_like(ind_cond))
-                cond_list[-1] = ind_cond.transpose(1, 2) # BS x W x C
-                cond_list[-1] = self._right_pad_if_necessary(cond_list[-1]) # BS x W+ x C
-                cond_list[-1] = cond_list[-1].view((x.shape[0], -1, self.in_dim * self.token_collect_size)) # BS x W+/bl x C*bl
-            total_cond = torch.cat(cond_list, dim=1) # BS x Cond*W+/bl * C*bl
-            total_cond = self.fc_in(total_cond) # BS x Cond*W+/bl x h
+                
+                cond_list.append(self._patchify(ind_cond)) # BS x bl x C*W/bl
+                
+                # Prepare positional embedding
+                pos_emb_range = torch.arange(0, cond_list[-1].shape[1])
+                pos_emb_mat = self.positional_encoding(pos_emb_range)
+                pos_emb = pos_emb_mat.repeat((x.shape[0], 1, self.num_heads))
+                pos_emb_cond = torch.cat((pos_emb_cond, pos_emb), dim=1)
+                
+            total_cond = torch.cat(cond_list, dim=1) # BS x bl*cond x C*W/bl
+            total_cond = self.fc_in(total_cond) + pos_emb_cond # BS x bl*cond x h
         else:
             empty_index = torch.tensor([0 for _ in range(x.shape[0])]).int().to(self.device)
             total_cond = self.empty_embedding(empty_index).unsqueeze(1) # BS x 1 x h
@@ -136,19 +178,17 @@ class DiffusionViT(BaseNetwork):
         t_emb = self.timestep_embedding(t.int()).unsqueeze(1)
         
         # Prepare inputs to the transformer
-        x = self.fc_in(x) # BS x W+/bl x h
-        x += self.positional_encoding(x)
-        total_cond += self.positional_encoding(total_cond)
+        x = self.fc_in(x) + pos_emb_in # BS x bl x h
         
         # Transformer
         x = self.transformer(torch.cat((x, t_emb), dim=1), 
                              torch.cat((total_cond, t_emb), dim=1))
         
         # Prepare outputs
-        x = self.fc_out(x[:, :-1, :]) # BS x W+/bl x C*bl
-        x = x.view(in_shape) # BS x W x C
+        x = self.fc_out(x[:, :-1, :]) # BS x bl x C*W/bl
+        x = self._depatchify(x) # BS x C x W
         
-        return x.transpose(1, 2)
+        return x
         
         
     def training_step(self, batch, batch_idx):
@@ -200,9 +240,9 @@ class DiffusionViT(BaseNetwork):
         x_pred = 1 / sqrt_alphas_cumprod_t * (x_noisy - sqrt_one_minus_alphas_cumprod_t * noise_pred)
         
         # Compute losses
-        stft_loss = F.l1_loss(self._mel_spec_and_process(torch.tanh(x_pred)), 
+        stft_loss = F.mse_loss(self._mel_spec_and_process(torch.tanh(x_pred)), 
                               self._mel_spec_and_process(torch.tanh(x_0)))
-        return {'diffusion_error_loss': F.l1_loss(noise, noise_pred),
+        return {'diffusion_error_loss': F.mse_loss(noise, noise_pred),
                 'stft_loss': stft_loss}
         
         
@@ -278,6 +318,4 @@ class DiffusionViT(BaseNetwork):
             running_slice = self.sample_timestep(running_slice, time_input, conditionals)
             running_slice = torch.tanh(running_slice)
         
-        #running_slice[running_slice < -1] = -1
-        #running_slice[running_slice > 1] = 1
         return running_slice

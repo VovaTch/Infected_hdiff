@@ -197,7 +197,7 @@ class MultiLvlVQVariationalAutoEncoder(BaseNetwork):
     def forward(self, x: torch.Tensor, extract_losses: bool=False):
         
         origin_shape = x.shape
-        x = x.view((x.shape[0], 1, -1))
+        x = x.reshape((x.shape[0], 1, -1))
         
         z_e = self.encoder(x)
         vq_block_output = self.vq_module(z_e, extract_losses=True)
