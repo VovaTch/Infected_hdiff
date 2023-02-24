@@ -6,10 +6,12 @@ import torch.nn.functional as F
 from torchaudio.transforms import MelSpectrogram
 
 from .vq_codebook import VQCodebook
-from loaders import MP3SliceDataset
+from loaders import MP3SliceDataset, Lvl2InputDataset
 from .base import BaseNetwork
 
-DATASETS = {'music_slice_dataset': MP3SliceDataset}
+DATASETS = {'music_slice_dataset': MP3SliceDataset,
+            'lvl2_dataset': Lvl2InputDataset}
+
 
 class ConvBlock1D(nn.Module):
     """
@@ -194,12 +196,15 @@ class MultiLvlVQVariationalAutoEncoder(BaseNetwork):
         
     def forward(self, x: torch.Tensor, extract_losses: bool=False):
         
+        origin_shape = x.shape
+        x = x.view((x.shape[0], 1, -1))
+        
         z_e = self.encoder(x)
         vq_block_output = self.vq_module(z_e, extract_losses=True)
         x_out = self.decoder(vq_block_output['v_q'])
         
         total_output = {**vq_block_output,
-                        'output': x_out}
+                        'output': x_out.view(origin_shape)}
         
         if extract_losses:
             total_output.update({'reconstruction_loss': F.mse_loss(x, x_out)})

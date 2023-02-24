@@ -28,7 +28,7 @@ class Lvl2InputDataset(Dataset):
                  lvl1_vqvae: 'MultiLvlVQVariationalAutoEncoder'=None,
                  device: str="cpu",
                  preload: bool=True,
-                 preload_file_path: str="data/music_samples/001-datatensor.bt",
+                 preload_file_path: str="data/music_samples/001-datatensor.pt",
                  preload_metadata_file_path: str='data/music_samples/001-metadata.pkl',
                  **kwargs):
         
@@ -147,4 +147,4 @@ class Lvl2InputDataset(Dataset):
         else:
             raise NotImplemented('Currently this dataset only functions with preloading')
             
-        return {'lvl2 slice': slice.to(self.device), 'track name': track_name[0]}
+        return {'music slice': slice.to(self.device), 'track name': track_name[0]}

@@ -28,7 +28,7 @@ def main(args):
     # Print the sample sizes and the name of the track.
     for batch in loader:
         print(f"File name is {batch['track name']}")
-        print(f"The size of the slice is {batch['lvl2 slice'].shape}")
+        print(f"The size of the slice is {batch['music slice'].shape}")
         break
     
     print(f'Finished saving the dataset.')
@@ -40,7 +40,7 @@ if __name__ == "__main__":
                         help='Config for the first level.')
     parser.add_argument('-c2', '--config2', type=str, default='config/lvl2_config.yaml',
                         help='Config for the second level.')
-    parser.add_argument('-r', '--resume', type=str, default='model_weights/lvl1_vqvae.ckpt',
+    parser.add_argument('-r', '--resume', type=str, default="model_weights/lvl1_vqvae.ckpt",
                         help='Path of the weights for the lvl1 vqvae model.')
     parser.add_argument('-d', '--device', type=str, default='cuda',
                         help='Device for the vqvae.')

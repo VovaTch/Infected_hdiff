@@ -12,18 +12,28 @@ model:
   bottleneck_kernel_size: 0
   channel_dim_change_list: [2, 2, 2, 2, 2, 2]
   amp: False
-  input_channels: 8
+  input_channels: 1
 
 
 learning:
   batch_size: 4
   learning_rate: 0.001
   weight_decay: 0.0
-  epochs: 15
+  epochs: 80
   gradient_clip: 0.5
   beta_ema: 0.9999
   eval_split_factor: 0.01
   monitored_loss: Validation total loss
   dataset_path: data/music_samples/
   scheduler_type: 'one_cycle_lr'
-  dataset_name: 'music_slice_dataset'
+  dataset_name: 'lvl2_dataset'
+
+
+mel_spec_config:
+  n_fft: 512
+  hop_length: 128
+  n_mels: 128
+  pad_mode: reflect
+  power: 1.0
+  norm: "slaney"
+  mel_scale: "htk"

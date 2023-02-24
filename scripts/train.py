@@ -35,6 +35,32 @@ def train_lvl_1_encoder(args):
         save_path = f'/content/drive/MyDrive/net_weights/IHDF/lvl1_vqvae.ckpt'
         trainer.save_checkpoint(save_path, weights_only=True)
         print(f'Saved network weights in {save_path}.')
+        
+        
+def train_lvl_2_encoder(args):
+    
+    if IN_COLAB:
+        print('Running on Google Colab.')
+    
+    # Load model
+    config_path = args.config if args.config is not None else 'config/lvl2_config.yaml'
+    cfg = load_cfg_dict(config_path)
+    model = MultiLvlVQVariationalAutoEncoder(**cfg)
+    if args.resume is not None:
+        model = model.load_from_checkpoint(args.resume, **cfg, strict=False)
+        
+    # Initialize trainer
+    trainer = initialize_trainer(cfg, num_devices=args.num_devices)
+    
+    # Start training
+    trainer.fit(model)
+    
+    # If running on Colab
+    if IN_COLAB:
+        print('Saving checkpoint in Google Drive:')
+        save_path = f'/content/drive/MyDrive/net_weights/IHDF/lvl2_vqvae.ckpt'
+        trainer.save_checkpoint(save_path, weights_only=True)
+        print(f'Saved network weights in {save_path}.')
     
 
 def train_denoiser(args):
@@ -103,7 +129,7 @@ def main(args):
         train_lvl_1_encoder(args)
         
     elif choice == 'lvl2vqvae':
-        raise NotImplementedError
+        train_lvl_2_encoder(args)
     
     elif choice == 'lvl3vqvae':
         raise NotImplementedError
