@@ -14,6 +14,17 @@ from utils.diffusion import DiffusionConstants, forward_diffusion_sample, get_in
 from .dit_facebook import DiTBlock, TimestepEmbedder
 
 
+class AdaptiveBatchNorm2d(nn.Module):
+    def __init__(self, num_features, eps=1e-5, momentum=0.1, affine=True):
+        super(AdaptiveBatchNorm2d, self).__init__()
+        self.bn = nn.BatchNorm1d(num_features, eps, momentum, affine)
+        self.a = nn.Parameter(torch.ones((1, 1, 1)))
+        self.b = nn.Parameter(torch.zeros((1, 1, 1)))
+
+    def forward(self, x):
+        return self.a * x + self.b * self.bn(x)
+
+
 def get_emb(sin_inp: torch.Tensor):
     """
     Gets a base embedding for one dimension with sin and cos intertwined
@@ -93,6 +104,9 @@ class DiffusionViT(BaseNetwork):
                 nn.ReLU()
             )
         
+        # Adaptive layer norm
+        self.adaptive_layer_norm = AdaptiveBatchNorm2d(hidden_size)
+        
         
     def _patchify(self, x: torch.Tensor):
         """
@@ -150,6 +164,7 @@ class DiffusionViT(BaseNetwork):
         
         # Transpose and divide the input into chunks
         x = self._patchify(x) # BS x bl x C*W/bl
+        x_saved = x.clone() # Save for later
         
         # Transpose and device the conditionals into chunks
         if cond is not None:
@@ -185,7 +200,8 @@ class DiffusionViT(BaseNetwork):
         
         # Prepare outputs
         x = self.fc_out(x[:, :-1, :]) # BS x bl x C*W/bl
-        x = self._depatchify(x) # BS x C x W
+        x = self.adaptive_layer_norm(x)
+        x = self._depatchify(x + x_saved) # BS x C x W
         
         return x
         
