@@ -24,7 +24,7 @@ learning:
   scheduler_type: 'one_cycle_lr'
   dataset_name: 'music_slice_dataset'
   eval_split_factor: 0.01
-  mel_factor: 0.0
+  mel_factor: 1.0
 
 mel_spec_config:
   n_fft: 1024
