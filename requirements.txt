@@ -1,2 +1,6 @@
+numpy
 pytorch_lightning
+tqdm
 timm
+matplotlib
+IPython
