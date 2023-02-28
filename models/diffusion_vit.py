@@ -105,7 +105,7 @@ class DiffusionViT(BaseNetwork):
             )
         
         # Adaptive layer norm
-        self.adaptive_layer_norm = AdaptiveBatchNorm2d(hidden_size)
+        self.adaptive_layer_norm = AdaptiveBatchNorm2d(in_dim * token_collect_size)
         
         
     def _patchify(self, x: torch.Tensor):
@@ -121,7 +121,8 @@ class DiffusionViT(BaseNetwork):
         
         # Fit the data into the required shape
         for block_idx in range(x_required_size[2]):
-            data_slice = x[:, :, block_idx * self.token_collect_size: (block_idx + 1) * self.token_collect_size]
+            data_slice = x[:, :, block_idx::x_required_size[2]]
+            #data_slice = x[:, :, block_idx * self.token_collect_size: (block_idx + 1) * self.token_collect_size]
             x_reshaped[:, :, block_idx] = data_slice.transpose(1, 2).flatten(start_dim=1)
             
         # Return the reshaped tensor
@@ -145,7 +146,9 @@ class DiffusionViT(BaseNetwork):
         for block_idx in range(x_reshaped_size[2]):
             data_slice = x_reshaped[:, :, block_idx]
             intermediate_block = data_slice.view((x_required_size[0], self.token_collect_size, x_required_size[1]))
-            x[:, :, block_idx * self.token_collect_size: (block_idx + 1) * self.token_collect_size] =\
+            # x[:, :, block_idx * self.token_collect_size: (block_idx + 1) * self.token_collect_size] =\
+            #     intermediate_block.transpose(1, 2)
+            x[:, :, block_idx::x_reshaped_size[2]] =\
                 intermediate_block.transpose(1, 2)
                 
         # Return the tensor with the original shape
@@ -164,6 +167,7 @@ class DiffusionViT(BaseNetwork):
         
         # Transpose and divide the input into chunks
         x = self._patchify(x) # BS x bl x C*W/bl
+        num_patches = x.shape[1]
         x_saved = x.clone() # Save for later
         
         # Transpose and device the conditionals into chunks
@@ -195,12 +199,12 @@ class DiffusionViT(BaseNetwork):
         x = self.fc_in(x) + pos_emb_in # BS x bl x h
         
         # Transformer
-        x = self.transformer(torch.cat((x, t_emb), dim=1), 
+        x = self.transformer(torch.cat((x, total_cond, t_emb), dim=1), 
                              torch.cat((total_cond, t_emb), dim=1))
         
         # Prepare outputs
-        x = self.fc_out(x[:, :-1, :]) # BS x bl x C*W/bl
-        x = self.adaptive_layer_norm(x)
+        x = self.fc_out(x[:, :num_patches, :]) # BS x bl x C*W/bl
+        x = self.adaptive_layer_norm(x.transpose(1, 2)).transpose(1, 2)
         x = self._depatchify(x + x_saved) # BS x C x W
         
         return x

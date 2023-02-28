@@ -4,3 +4,4 @@ tqdm
 timm
 matplotlib
 IPython
+tensorboard
