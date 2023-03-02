@@ -259,9 +259,9 @@ class DiffusionViT(BaseNetwork):
         x_pred = 1 / sqrt_alphas_cumprod_t * (x_noisy - sqrt_one_minus_alphas_cumprod_t * noise_pred)
         
         # Compute losses
-        stft_loss = F.mse_loss(self._mel_spec_and_process(torch.tanh(x_pred)), 
+        stft_loss = F.l1_loss(self._mel_spec_and_process(torch.tanh(x_pred)), 
                               self._mel_spec_and_process(torch.tanh(x_0)))
-        return {'diffusion_error_loss': F.mse_loss(noise, noise_pred),
+        return {'diffusion_error_loss': F.l1_loss(noise, noise_pred),
                 'stft_loss': stft_loss}
         
         
@@ -321,7 +321,7 @@ class DiffusionViT(BaseNetwork):
         
         
     @torch.no_grad()
-    def denoise(self, noisy_input: torch.Tensor, conditionals: Optional[List[torch.Tensor]]=None):
+    def denoise(self, noisy_input: torch.Tensor, conditionals: Optional[List[torch.Tensor]]=None, show_process_plots: bool=False):
         """
         The main denoising method. Expects to get a BS x 1 x Length input, will output a denoised music sample.
 
@@ -333,12 +333,16 @@ class DiffusionViT(BaseNetwork):
         batch_size = noisy_input.shape[0]
         for time_step in reversed(range(self.num_steps)):
             
-            time_input = torch.tensor([time_step for _ in range(batch_size)]).to(self.device)
-            running_slice = self.sample_timestep(running_slice, time_input, conditionals)
-            running_slice = torch.tanh(running_slice)
+            if time_step < 30:
             
-            plt.figure(figsize=(25, 5))
-            plt.plot(running_slice[0, ...].squeeze(0).cpu().detach().numpy())
-            plt.show()
-        
+                time_input = torch.tensor([time_step for _ in range(batch_size)]).to(self.device)
+                running_slice = self.sample_timestep(running_slice, time_input, conditionals)
+                running_slice = torch.tanh(running_slice)
+                
+                if show_process_plots:
+                    plt.figure(figsize=(25, 5))
+                    plt.ylim((-1.1, 1.1))
+                    plt.plot(running_slice[0, ...].squeeze(0).cpu().detach().numpy())
+                    plt.show()
+            
         return running_slice

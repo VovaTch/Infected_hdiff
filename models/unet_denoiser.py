@@ -160,11 +160,11 @@ class WaveUNet_Denoiser(BaseNetwork):
         # Compute loss
         denoise_loss = F.mse_loss(music_slice, denoised_slice)
         stft_loss = F.mse_loss(self._mel_spec_and_process(music_slice), self._mel_spec_and_process(denoised_slice))
-        self.log('Evaluation reconstruction loss', denoise_loss)
-        self.log('Evaluation stft loss', stft_loss)
+        self.log('Validation reconstruction loss', denoise_loss)
+        self.log('Validation stft loss', stft_loss)
         
         total_loss = denoise_loss + self.mel_factor * stft_loss
-        self.log('Evaluation total loss', total_loss, prog_bar=True)
+        self.log('Validation total loss', total_loss, prog_bar=True)
         
         
     def _mel_spec_and_process(self, x: torch.Tensor):
@@ -174,7 +174,7 @@ class WaveUNet_Denoiser(BaseNetwork):
         Args:
             x (torch.Tensor): Input, will be flattened
         """
-        lin_vector = torch.linspace(0.1, 5, self.mel_spec_config['n_mels'])
+        lin_vector = torch.linspace(0.1, 50, self.mel_spec_config['n_mels'])
         eye_mat = torch.diag(lin_vector).to(self.device)
         mel_out = self.mel_spec(x.squeeze(1))
         mel_out = torch.tanh(eye_mat @ mel_out)

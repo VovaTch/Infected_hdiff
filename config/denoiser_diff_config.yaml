@@ -13,9 +13,9 @@ model:
   amp: False
 
 learning:
-  batch_size: 64
-  learning_rate: 0.0003
-  weight_decay: 0.01
+  batch_size: 8
+  learning_rate: 0.0001
+  weight_decay: 0.00
   epochs: 30
   gradient_clip: 0.5
   beta_ema: 0.9999
@@ -27,7 +27,7 @@ learning:
   mel_factor: 1.0
 
 mel_spec_config:
-  n_fft: 1024
+  n_fft: 512
   hop_length: 128
   n_mels: 128
   pad_mode: reflect

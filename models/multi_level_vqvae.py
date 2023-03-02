@@ -13,19 +13,33 @@ DATASETS = {'music_slice_dataset': MP3SliceDataset,
             'lvl2_dataset': Lvl2InputDataset}
 
 
+class SinActivation(nn.Module):
+    
+    def __init__(self):
+        super().__init__()
+    
+    def forward(self, x):
+        return torch.sin(x)
+
+
 class ConvBlock1D(nn.Module):
     """
     Double conv block, I leave the change in dimensions to the encoder and decoder classes.
     """
     
-    def __init__(self, in_channels: int, out_channels: int, kernel_size: int):
+    def __init__(self, in_channels: int, out_channels: int, kernel_size: int, activation_type: str='gelu'):
         super().__init__()
+        assert activation_type in ['gelu', 'sin'], 'unknown activation type'
+        if activation_type == 'gelu':
+            activation_func = nn.GELU()
+        elif activation_type == 'sin':
+            activation_func = SinActivation()
         self.architecture = nn.Sequential(
             nn.Conv1d(in_channels, out_channels, kernel_size=kernel_size, padding=kernel_size // 2),
-            nn.GELU(),
+            activation_func,
             nn.BatchNorm1d(out_channels),
             nn.Conv1d(out_channels, out_channels, kernel_size=kernel_size, padding=kernel_size // 2),
-            nn.GELU(),
+            activation_func,
         )
            
             
@@ -89,7 +103,8 @@ class Decoder1D(nn.Module):
                 nn.Conv1d(channel_list[1], input_channels, kernel_size=bottleneck_kernel_size, padding=bottleneck_kernel_size // 2)
             )
         self.conv_list = nn.ModuleList(
-            [ConvBlock1D(channel_list[idx], channel_list[idx + 1], 5) for idx in range(len(dim_change_list))]
+            [ConvBlock1D(channel_list[idx], channel_list[idx + 1], 5, activation_type='sin') 
+             for idx in range(len(dim_change_list))]
         )
         self.dim_change_list = nn.ModuleList(
             [nn.ConvTranspose1d(channel_list[idx + 1], channel_list[idx + 1], 
