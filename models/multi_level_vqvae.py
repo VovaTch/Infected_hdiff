@@ -103,12 +103,12 @@ class Decoder1D(nn.Module):
                 nn.Conv1d(channel_list[1], input_channels, kernel_size=bottleneck_kernel_size, padding=bottleneck_kernel_size // 2)
             )
         self.conv_list = nn.ModuleList(
-            [ConvBlock1D(channel_list[idx], channel_list[idx + 1], 5, activation_type='sin') 
+            [ConvBlock1D(channel_list[idx], channel_list[idx + 1], 5, activation_type='gelu') 
              for idx in range(len(dim_change_list))]
         )
         self.dim_change_list = nn.ModuleList(
             [nn.ConvTranspose1d(channel_list[idx + 1], channel_list[idx + 1], 
-                                kernel_size=dim_change_list[idx], stride=dim_change_list[idx])
+                                kernel_size=dim_change_list[idx] + 12, stride=dim_change_list[idx], padding=6)
              for idx in range(len(dim_change_list))]
         )
         self.sin_locations = sin_locations
@@ -172,6 +172,7 @@ class MultiLvlVQVariationalAutoEncoder(BaseNetwork):
                  vocabulary_size: int=8192,
                  bottleneck_kernel_size: int=31,
                  input_channels: int=1,
+                 sin_locations: List[int] = None,
                  channel_dim_change_list: List[int] = [2, 2, 2, 4, 4],
                  **kwargs):
         
@@ -200,7 +201,6 @@ class MultiLvlVQVariationalAutoEncoder(BaseNetwork):
         encoder_dim_changes = channel_dim_change_list
         decoder_channel_list = list(reversed(encoder_channel_list))
         decoder_dim_changes = list(reversed(channel_dim_change_list))
-        sin_locations = None
         
         # Initialize network parts
         self.encoder = Encoder1D(encoder_channel_list, encoder_dim_changes, input_channels=input_channels)
@@ -222,9 +222,9 @@ class MultiLvlVQVariationalAutoEncoder(BaseNetwork):
                         'output': x_out.view(origin_shape)}
         
         if extract_losses:
-            total_output.update({'reconstruction_loss': F.mse_loss(x, x_out)})
+            total_output.update({'reconstruction_loss': F.l1_loss(x, x_out)})
             if self.mel_spec is not None:
-                total_output.update({'stft_loss': F.mse_loss(self._mel_spec_and_process(x), 
+                total_output.update({'stft_loss': F.l1_loss(self._mel_spec_and_process(x), 
                                                             self._mel_spec_and_process(x_out))})
         
         return total_output
@@ -237,7 +237,7 @@ class MultiLvlVQVariationalAutoEncoder(BaseNetwork):
         Args:
             x (torch.Tensor): Input, will be flattened
         """
-        lin_vector = torch.linspace(0.1, 5, self.mel_spec_config['n_mels'])
+        lin_vector = torch.linspace(0.1, 50, self.mel_spec_config['n_mels'])
         eye_mat = torch.diag(lin_vector).to(self.device)
         mel_out = self.mel_spec(x.flatten(start_dim=0, end_dim=1))
         mel_out = torch.tanh(eye_mat @ mel_out)
