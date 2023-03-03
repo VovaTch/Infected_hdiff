@@ -222,9 +222,9 @@ class MultiLvlVQVariationalAutoEncoder(BaseNetwork):
                         'output': x_out.view(origin_shape)}
         
         if extract_losses:
-            total_output.update({'reconstruction_loss': F.l1_loss(x, x_out)})
+            total_output.update({'reconstruction_loss': F.mse_loss(x, x_out)})
             if self.mel_spec is not None:
-                total_output.update({'stft_loss': F.l1_loss(self._mel_spec_and_process(x), 
+                total_output.update({'stft_loss': F.mse_loss(self._mel_spec_and_process(x), 
                                                             self._mel_spec_and_process(x_out))})
         
         return total_output
