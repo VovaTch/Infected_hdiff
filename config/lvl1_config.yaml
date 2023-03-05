@@ -16,7 +16,7 @@ model:
   input_channels: 1
 
 learning:
-  batch_size: 4
+  batch_size: 16
   learning_rate: 0.0003
   weight_decay: 0.0
   epochs: 15

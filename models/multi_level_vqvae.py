@@ -13,6 +13,28 @@ DATASETS = {'music_slice_dataset': MP3SliceDataset,
             'lvl2_dataset': Lvl2InputDataset}
 
 
+class ConvDownsample(nn.Module):
+    '''
+    A small module handling downsampling via a convolutional layer instead of e.g. Maxpool.
+    '''
+    
+    def __init__(self, kernel_size: int, downsample_divide: int, in_dim: int):
+        
+        super().__init__()
+        self.kernel_size = kernel_size
+        self.downsample_divide = downsample_divide
+        self.in_dim = in_dim
+        self.padding_needed = (kernel_size - 2) + (downsample_divide - 2)
+        self.padding_needed = 0 if self.padding_needed < 0 else self.padding_needed # Safeguard against negative padding
+        
+        # Define the convolutional layer
+        self.conv_down = nn.Conv1d(in_dim, in_dim, kernel_size=kernel_size, stride=downsample_divide)
+        
+    def forward(self, x):
+        x = F.pad(x, (0, self.padding_needed))
+        return self.conv_down(x)
+
+
 class SinActivation(nn.Module):
     
     def __init__(self):
@@ -66,7 +88,8 @@ class Encoder1D(nn.Module):
             [ConvBlock1D(channel_list[idx], channel_list[idx + 1], 5) for idx in range(len(dim_change_list))]
         )
         self.dim_change_list = nn.ModuleList(
-            [nn.MaxPool1d(dim_change_param) for dim_change_param in dim_change_list]
+            [ConvDownsample(kernel_size=5, downsample_divide=dim_change_param, in_dim=channel_list[idx + 1]) 
+             for idx, dim_change_param in enumerate(dim_change_list)]
         )
         
         
@@ -237,10 +260,11 @@ class MultiLvlVQVariationalAutoEncoder(BaseNetwork):
         Args:
             x (torch.Tensor): Input, will be flattened
         """
-        lin_vector = torch.linspace(0.1, 50, self.mel_spec_config['n_mels'])
+        lin_vector = torch.linspace(0.5, 2, self.mel_spec_config['n_mels'])
         eye_mat = torch.diag(lin_vector).to(self.device)
         mel_out = self.mel_spec(x.flatten(start_dim=0, end_dim=1))
-        mel_out = torch.tanh(eye_mat @ mel_out)
+        #mel_out = torch.tanh(eye_mat @ mel_out)
+        mel_out = eye_mat @ mel_out
         return mel_out
         
     
