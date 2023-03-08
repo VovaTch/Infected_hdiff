@@ -339,6 +339,7 @@ class MultiLvlVQVariationalAutoEncoder(BaseNetwork):
         for idx in range(phase_parameter):
             loss_vector[idx * 2] = loss_function(x[:, :, idx:], x_target[:, :, :-idx])
             loss_vector[idx * 2 + 1] = loss_function(x[:, :, :-idx], x_target[:, :, idx:])
+            loss_vector[idx * 2 + 1] = loss_vector[idx * 2 + 1] + 1e-6 if idx == 0 else loss_vector[idx * 2 + 1]
         return loss_vector.min()
     
     
