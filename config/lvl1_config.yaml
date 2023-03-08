@@ -6,8 +6,6 @@ model:
   hidden_size: 16
   latent_width: 128
   latent_depth: 8
-  beta_factor: 0.5
-  mel_factor: 1.0
   vocabulary_size: 32768
   bottleneck_kernel_size: 0
   channel_dim_change_list: [2, 2, 2, 2, 2, 2]
@@ -16,7 +14,7 @@ model:
   input_channels: 1
 
 learning:
-  batch_size: 16
+  batch_size: 4
   learning_rate: 0.0003
   weight_decay: 0.0
   epochs: 15
@@ -28,12 +26,37 @@ learning:
   dataset_name: 'music_slice_dataset'
   eval_split_factor: 0.01
 
+  loss_dict:
+    loss_beta: 0.5
+    loss_reconstruction: 0.1
+    loss_mel: 1.0
+    loss_mel_sub_1: 1.0
+    loss_mel_sub_2: 1.0
+
 mel_spec_config:
   n_fft: 1024
-  hop_length: 256
+  hop_length: 128
   n_mels: 256
   pad_mode: reflect
   power: 1.0
+  norm: "slaney"
+  mel_scale: "htk"
+
+mel_spec_sub_1_config:
+  n_fft: 512
+  hop_length: 256
+  n_mels: 128
+  pad_mode: reflect
+  power: 2.0
+  norm: "slaney"
+  mel_scale: "htk"
+
+mel_spec_sub_2_config:
+  n_fft: 256
+  hop_length: 512
+  n_mels: 64
+  pad_mode: reflect
+  power: 0.5
   norm: "slaney"
   mel_scale: "htk"
   

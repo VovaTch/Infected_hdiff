@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict
 
 import torch
 import torch.nn as nn
@@ -190,8 +190,7 @@ class MultiLvlVQVariationalAutoEncoder(BaseNetwork):
                  slice_length: float,
                  hidden_size: int,
                  latent_depth: int,
-                 beta_factor: float=0.5,
-                 mel_factor: float=100.0,
+                 loss_dict: Dict[str, float],
                  vocabulary_size: int=8192,
                  bottleneck_kernel_size: int=31,
                  input_channels: int=1,
@@ -202,22 +201,39 @@ class MultiLvlVQVariationalAutoEncoder(BaseNetwork):
         super().__init__(**kwargs)
         
         # Parse arguments
+        self.loss_dict = loss_dict
         self.cfg = kwargs
         self.sample_rate = sample_rate
         self.slice_length = slice_length
         self.samples_per_slice = int(sample_rate * slice_length)
         self.hidden_size = hidden_size
         self.latent_depth = latent_depth
-        self.beta_factor = beta_factor
         self.vocabulary_size = vocabulary_size
-        self.mel_factor = mel_factor
         self.channel_dim_change_list = channel_dim_change_list
+        
+        self.beta_factor = loss_dict['loss_beta']
+        self.mel_factor = loss_dict['loss_mel']
+        self.mel_factor_sub_1 = loss_dict['loss_mel_sub_1']
+        self.mel_factor_sub_1 = loss_dict['loss_mel_sub_2']
+        self.reconstruction_factor = loss_dict['loss_reconstruction']
         
         # Initialize mel spectrogram, TODO: Might do multiple ones for multiple losses
         self.mel_spec = None
         if 'mel_spec_config' in kwargs:
             self.mel_spec_config = kwargs['mel_spec_config']
             self.mel_spec = MelSpectrogram(sample_rate=sample_rate, **self.mel_spec_config)
+            
+        # Initialize the sub mel specs for additional losses
+        self.mel_spec_sub_1 = None
+        if 'mel_spec_sub_1_config' in kwargs:
+            self.mel_spec_config_sub_1 = kwargs['mel_spec_sub_1_config']
+            self.mel_spec_sub_1 = MelSpectrogram(sample_rate=sample_rate, **self.mel_spec_config_sub_1)
+            
+        # Initialize the sub mel specs for additional losses
+        self.mel_spec_sub_2 = None
+        if 'mel_spec_sub_2_config' in kwargs:
+            self.mel_spec_config_sub_2 = kwargs['mel_spec_sub_2_config']
+            self.mel_spec_sub_2 = MelSpectrogram(sample_rate=sample_rate, **self.mel_spec_config_sub_2)
         
         # Encoder parameter initialization
         encoder_channel_list = [hidden_size * (2 ** (idx + 1)) for idx in range(len(channel_dim_change_list))] + [latent_depth]
@@ -245,10 +261,18 @@ class MultiLvlVQVariationalAutoEncoder(BaseNetwork):
                         'output': x_out.view(origin_shape)}
         
         if extract_losses:
-            total_output.update({'reconstruction_loss': F.mse_loss(x, x_out)})
+            
+            total_output.update({'reconstruction_loss': self._phased_loss(x, x_out, F.l1_loss)})
+            
             if self.mel_spec is not None:
-                total_output.update({'stft_loss': F.mse_loss(self._mel_spec_and_process(x), 
+                total_output.update({'stft_loss': F.l1_loss(self._mel_spec_and_process(x), 
                                                             self._mel_spec_and_process(x_out))})
+            if self.mel_spec_sub_1 is not None:
+                total_output.update({'stft_loss_sub_1': F.l1_loss(self._mel_spec_sub_1_and_process(x), 
+                                                                  self._mel_spec_sub_1_and_process(x_out))})
+            if self.mel_spec_sub_2 is not None:
+                total_output.update({'stft_loss_sub_2': F.l1_loss(self._mel_spec_sub_2_and_process(x), 
+                                                                  self._mel_spec_sub_2_and_process(x_out))})
         
         return total_output
     
@@ -260,22 +284,45 @@ class MultiLvlVQVariationalAutoEncoder(BaseNetwork):
         Args:
             x (torch.Tensor): Input, will be flattened
         """
-        lin_vector = torch.linspace(0.5, 2, self.mel_spec_config['n_mels'])
+        lin_vector = torch.linspace(0.5, 10, self.mel_spec_config['n_mels'])
         eye_mat = torch.diag(lin_vector).to(self.device)
         mel_out = self.mel_spec(x.flatten(start_dim=0, end_dim=1))
-        #mel_out = torch.tanh(eye_mat @ mel_out)
+        mel_out = torch.log(eye_mat @ mel_out + 1e-5)
+        return mel_out
+    
+    
+    def _mel_spec_sub_1_and_process(self, x: torch.Tensor):
+        '''
+        Prepares the sub_1 mel spectrogram loss
+        '''
+        
+        lin_vector = torch.linspace(1, 1, self.mel_spec_config_sub_1['n_mels'])
+        eye_mat = torch.diag(lin_vector).to(self.device)
+        mel_out = self.mel_spec_sub_1(x.flatten(start_dim=0, end_dim=1))
+        mel_out = torch.log(eye_mat @ mel_out + 1e-5)
+        return mel_out
+    
+    
+    def _mel_spec_sub_2_and_process(self, x: torch.Tensor):
+        '''
+        Prepares the sub_2 mel spectrogram loss
+        '''
+        
+        lin_vector = torch.linspace(0.1, 20, self.mel_spec_config_sub_2['n_mels'])
+        eye_mat = torch.diag(lin_vector).to(self.device)
+        mel_out = self.mel_spec_sub_2(x.flatten(start_dim=0, end_dim=1))
         mel_out = eye_mat @ mel_out
         return mel_out
-        
     
     
     def training_step(self, batch, batch_idx):
         
         music_slice = batch['music slice']
         total_output = self.forward(music_slice, extract_losses=True)
-        total_loss = total_output['reconstruction_loss'] + total_output['alignment_loss'] +\
-            self.beta_factor * total_output['commitment_loss'] +\
-            self.mel_factor * total_output['stft_loss']
+        total_loss = self.reconstruction_factor * total_output['reconstruction_loss'] +\
+                     self.beta_factor * total_output['commitment_loss'] +\
+                     total_output['alignment_loss'] +\
+                     self.mel_factor * total_output['stft_loss']
             
         for key, value in total_output.items():
             if 'loss' in key.split('_'):
@@ -286,21 +333,26 @@ class MultiLvlVQVariationalAutoEncoder(BaseNetwork):
         return total_loss
     
     
+    def _phased_loss(self, x: torch.Tensor, x_target: torch.Tensor, loss_function, phase_parameter: int=10):
+        
+        loss_vector = torch.zeros(phase_parameter * 2).to(self.device)
+        for idx in range(phase_parameter):
+            loss_vector[idx * 2] = loss_function(x[:, :, idx:], x_target[:, :, :-idx])
+            loss_vector[idx * 2 + 1] = loss_function(x[:, :, :-idx], x_target[:, :, idx:])
+        return loss_vector.min()
+    
+    
     def validation_step(self, batch, batch_idx):
         
         music_slice = batch['music slice']
         total_output = self.forward(music_slice, extract_losses=True)
-        total_loss = total_output['reconstruction_loss'] + total_output['alignment_loss'] +\
-            self.beta_factor * total_output['commitment_loss']
+        total_loss = self.reconstruction_factor * total_output['reconstruction_loss'] +\
+                     self.beta_factor * total_output['commitment_loss'] +\
+                     total_output['alignment_loss'] +\
+                     self.mel_factor * total_output['stft_loss']
             
         for key, value in total_output.items():
             if 'loss' in key.split('_'):
                 displayed_key = key.replace('_', ' ')
                 self.log(f'Validation {displayed_key}', value)
         self.log('Validation total loss', total_loss, prog_bar=True)
-    
-    
-if __name__ == "__main__":
-    
-    vae = MultiLvlVQVariationalAutoEncoder(44100, 5.0, 64, 16, 0.001, 0.01)
-    
