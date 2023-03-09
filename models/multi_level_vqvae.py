@@ -337,9 +337,12 @@ class MultiLvlVQVariationalAutoEncoder(BaseNetwork):
         
         loss_vector = torch.zeros(phase_parameter * 2).to(self.device)
         for idx in range(phase_parameter):
-            loss_vector[idx * 2] = loss_function(x[:, :, idx:], x_target[:, :, :-idx])
-            loss_vector[idx * 2 + 1] = loss_function(x[:, :, :-idx], x_target[:, :, idx:])
-            loss_vector[idx * 2 + 1] = loss_vector[idx * 2 + 1] + 1e-6 if idx == 0 else loss_vector[idx * 2 + 1]
+            if idx == 0:
+                loss_vector[idx * 2] = loss_function(x, x_target)
+                loss_vector[idx * 2 + 1] = loss_vector[idx * 2] + 1e-6
+            else:
+                loss_vector[idx * 2] = loss_function(x[:, :, idx:], x_target[:, :, :-idx])
+                loss_vector[idx * 2 + 1] = loss_function(x[:, :, :-idx], x_target[:, :, idx:])
         return loss_vector.min()
     
     
