@@ -214,7 +214,7 @@ class MultiLvlVQVariationalAutoEncoder(BaseNetwork):
         self.beta_factor = loss_dict['loss_beta']
         self.mel_factor = loss_dict['loss_mel']
         self.mel_factor_sub_1 = loss_dict['loss_mel_sub_1']
-        self.mel_factor_sub_1 = loss_dict['loss_mel_sub_2']
+        self.mel_factor_sub_2 = loss_dict['loss_mel_sub_2']
         self.reconstruction_factor = loss_dict['loss_reconstruction']
         
         # Initialize mel spectrogram, TODO: Might do multiple ones for multiple losses
@@ -311,7 +311,7 @@ class MultiLvlVQVariationalAutoEncoder(BaseNetwork):
         lin_vector = torch.linspace(0.1, 20, self.mel_spec_config_sub_2['n_mels'])
         eye_mat = torch.diag(lin_vector).to(self.device)
         mel_out = self.mel_spec_sub_2(x.flatten(start_dim=0, end_dim=1))
-        mel_out = eye_mat @ mel_out
+        mel_out = torch.log(eye_mat @ mel_out + 1e-5)
         return mel_out
     
     
@@ -322,7 +322,9 @@ class MultiLvlVQVariationalAutoEncoder(BaseNetwork):
         total_loss = self.reconstruction_factor * total_output['reconstruction_loss'] +\
                      self.beta_factor * total_output['commitment_loss'] +\
                      total_output['alignment_loss'] +\
-                     self.mel_factor * total_output['stft_loss']
+                     self.mel_factor * total_output['stft_loss'] +\
+                     self.mel_factor_sub_1 * total_output['stft_loss_sub_1'] +\
+                     self.mel_factor_sub_2 * total_output['stft_loss_sub_2']
             
         for key, value in total_output.items():
             if 'loss' in key.split('_'):
@@ -353,7 +355,9 @@ class MultiLvlVQVariationalAutoEncoder(BaseNetwork):
         total_loss = self.reconstruction_factor * total_output['reconstruction_loss'] +\
                      self.beta_factor * total_output['commitment_loss'] +\
                      total_output['alignment_loss'] +\
-                     self.mel_factor * total_output['stft_loss']
+                     self.mel_factor * total_output['stft_loss'] +\
+                     self.mel_factor_sub_1 * total_output['stft_loss_sub_1'] +\
+                     self.mel_factor_sub_2 * total_output['stft_loss_sub_2']
             
         for key, value in total_output.items():
             if 'loss' in key.split('_'):
