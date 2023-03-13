@@ -14,15 +14,15 @@ model:
   input_channels: 1
 
 learning:
-  batch_size: 8
-  learning_rate: 0.0002
+  batch_size: 4
+  learning_rate: 0.0003
   weight_decay: 0.01
-  epochs: 100
+  epochs: 10
   gradient_clip: 0.5
   beta_ema: 0.9999
   monitored_loss: Validation total loss
   dataset_path: data/music_samples/
-  scheduler_type: 'none'
+  scheduler_type: 'one_cycle_lr'
   dataset_name: 'music_slice_dataset'
   eval_split_factor: 0.01
 
@@ -34,16 +34,16 @@ learning:
     loss_mel_sub_2: 1.0
 
 mel_spec_config:
-  n_fft: 1024
-  hop_length: 128
-  n_mels: 256
+  n_fft: 2048
+  hop_length: 512
+  n_mels: 128
   pad_mode: reflect
   power: 1.0
   norm: "slaney"
   mel_scale: "htk"
 
 mel_spec_sub_1_config:
-  n_fft: 512
+  n_fft: 1024
   hop_length: 256
   n_mels: 128
   pad_mode: reflect
@@ -52,7 +52,7 @@ mel_spec_sub_1_config:
   mel_scale: "htk"
 
 mel_spec_sub_2_config:
-  n_fft: 256
+  n_fft: 512
   hop_length: 512
   n_mels: 64
   pad_mode: reflect

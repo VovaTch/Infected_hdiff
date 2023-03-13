@@ -100,6 +100,7 @@ class Encoder1D(nn.Module):
         for conv, dim_change in zip(self.conv_list, self.dim_change_list):
             x = conv(x)
             x = dim_change(x)
+            x = F.gelu(x)
         
         return x
 
