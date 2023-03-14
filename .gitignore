@@ -138,6 +138,9 @@ model_weights/
 data/
 *.mp3
 
+#--------------- OUTPUT FOLDER
+output/
+
 
 #-------------- JS RELATED GIT IGNORE
 
