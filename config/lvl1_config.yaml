@@ -9,7 +9,7 @@ model:
   vocabulary_size: 32768
   bottleneck_kernel_size: 0
   channel_dim_change_list: [2, 2, 2, 2, 2, 2]
-  sin_locations: []
+  sin_locations: [1, 2, 3]
   amp: False
   input_channels: 1
 
