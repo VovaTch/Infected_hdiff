@@ -1,1 +1,83 @@
+:root {
+    --primary: #27378f;
+    --secondary: #98d2d4;
+    --dark: #250929;
+    --light: #f6fff7;
+}
 
+* {
+    margin: 0;
+    padding: 0;
+    border-style: border-box;
+    font-family: 'Fira Sans', sans-serif;
+    font-weight: 300;
+}
+
+body {
+    background-color: var(--light);
+}
+
+.App {
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+} 
+
+.App > h1, h2 {
+    color: var(--dark);
+    align-items: center;
+    display: block;
+}
+
+.c-player {
+    display: block;
+    background-color: var(--secondary);
+    padding: auto;
+    border-radius: 8px;
+    box-shadow: 0x 2px 64px rgba(0, 0, 0, 0.2);
+}
+
+.c-player > h4 {
+    color: var(--dark);
+    font-size: 20px;
+    text-transform: uppercase;
+    text-align: center;
+    padding-top: 30px;
+}
+
+/*C-player-details, mostly the image*/
+.c-player--details .details-img {
+    position: relative;
+    width: fit-content;
+    margin: 50px auto;
+}
+
+.c-player--details .details-img img {
+    display: block;
+    margin: 0px auto;
+    width: 100%;
+    border-radius: 50px;
+}
+
+/*Buttons*/
+.c-player--controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+button {
+    flex: 1 1 0%;
+    color: var(--light);
+    appearance: none;
+    border: none;
+    outline: none;
+    background-color: var(--primary);
+    padding: 16px;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+button:hover {
+    opacity: 0.7;
+}

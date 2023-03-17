@@ -9,7 +9,7 @@ model:
   vocabulary_size: 8192
   bottleneck_kernel_size: 0
   channel_dim_change_list: [2, 2, 2, 2, 2, 2]
-  sin_locations: []
+  sin_locations: [4, 5, 6]
   amp: False
   input_channels: 1
 
@@ -28,10 +28,10 @@ learning:
 
   loss_dict:
     loss_beta: 0.5
-    loss_reconstruction: 0.01
-    loss_mel: 1.0
-    loss_mel_sub_1: 1.0
-    loss_mel_sub_2: 1.0
+    loss_reconstruction: 1.0
+    loss_mel: 0.0
+    loss_mel_sub_1: 0.0
+    loss_mel_sub_2: 0.0
 
 
 mel_spec_config:
