@@ -349,6 +349,16 @@ class MultiLvlVQVariationalAutoEncoder(BaseNetwork):
         return loss_vector.min()
     
     
+    def on_train_epoch_end(self):
+        self.vq_module.vq_codebook.random_restart()
+        self.vq_module.vq_codebook.reset_usage()
+        
+        
+    def on_validation_end(self):
+        self.vq_module.vq_codebook.random_restart()
+        self.vq_module.vq_codebook.reset_usage()
+    
+    
     def validation_step(self, batch, batch_idx):
         
         music_slice = batch['music slice']

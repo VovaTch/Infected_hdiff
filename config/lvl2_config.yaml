@@ -6,24 +6,24 @@ model:
   hidden_size: 16
   latent_width: 128
   latent_depth: 8
-  vocabulary_size: 8192
+  vocabulary_size: 32768
   bottleneck_kernel_size: 0
   channel_dim_change_list: [2, 2, 2, 2, 2, 2]
-  sin_locations: [4, 5, 6]
+  sin_locations: [1, 2, 3]
   amp: False
   input_channels: 1
 
 learning:
   batch_size: 4
-  learning_rate: 0.001
+  learning_rate: 0.0005
   weight_decay: 0.0
-  epochs: 80
+  epochs: 500
   gradient_clip: 0.5
   beta_ema: 0.9999
   eval_split_factor: 0.01
   monitored_loss: Validation total loss
   dataset_path: data/music_samples/
-  scheduler_type: 'one_cycle_lr'
+  scheduler_type: 'none'
   dataset_name: 'lvl2_dataset'
 
   loss_dict:

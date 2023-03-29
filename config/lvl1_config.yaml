@@ -9,15 +9,15 @@ model:
   vocabulary_size: 32768
   bottleneck_kernel_size: 0
   channel_dim_change_list: [2, 2, 2, 2, 2, 2]
-  sin_locations: [1, 2, 3]
+  sin_locations: [3, 4, 5]
   amp: False
   input_channels: 1
 
 learning:
-  batch_size: 4
+  batch_size: 8
   learning_rate: 0.0003
   weight_decay: 0.01
-  epochs: 10
+  epochs: 100
   gradient_clip: 0.5
   beta_ema: 0.9999
   monitored_loss: Validation total loss

@@ -6,18 +6,38 @@ class VQCodebook(nn.Module):
     """
     Parameter holder for the embeddings for the VQVAE. This also references to the function that computes gradients past the quantizer.
     """
-    def __init__(self, token_dim, num_tokens: int=512):
+    def __init__(self, token_dim, num_tokens: int=512, usage_threshold=1e-9):
         super().__init__()
         
         self.num_tokens = num_tokens
         self.code_embedding = nn.Parameter(torch.rand(num_tokens, token_dim))
+        self.usage_threshold = usage_threshold
+        
+        # Create a usage instance
+        self.register_buffer('usage', torch.ones(self.num_tokens), persistent=False)
         
     def apply_codebook(self, x_in: torch.Tensor, code_sg: bool=False):
         
         embedding_weights = self.code_embedding.transpose(0, 1)
         z_q, indices = vq_codebook_select(x_in, embedding_weights.detach() if code_sg else embedding_weights)
+        self.update_usage(indices)
         
         return z_q, indices
+    
+    # Everything below is the random restart code to try to use the entire codebook and avoid codebook collapse according to OpenAI's Jukebox.
+    def update_usage(self, min_enc):
+        self.usage[min_enc.flatten()] = self.usage[min_enc.flatten()] + 1  # if code is used add 1 to usage
+        self.usage /= 2 # decay all codes usage
+        
+    def reset_usage(self):
+        self.usage.zero_() #  reset usage between epochs
+        
+    def random_restart(self):
+        #  randomly restart all dead codes below threshold with random code in codebook
+        dead_codes = torch.nonzero(self.usage < self.usage_threshold).squeeze(1)
+        rand_codes = torch.randperm(self.num_tokens)[0:len(dead_codes)]
+        with torch.no_grad():
+            self.code_embedding[dead_codes] = self.code_embedding[rand_codes]
         
 
 
