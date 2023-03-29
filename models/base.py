@@ -74,7 +74,7 @@ class BaseNetwork(pl.LightningModule):
         else:
             total_steps = len(self.dataset) // self.batch_size + 1
         
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)#, weight_decay=self.weight_decay)
+        optimizer = torch.optim.AdamW(self.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
         
         if self.scheduler_type == 'one_cycle_lr':
             scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=self.learning_rate, 

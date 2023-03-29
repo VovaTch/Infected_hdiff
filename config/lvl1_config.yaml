@@ -6,23 +6,23 @@ model:
   hidden_size: 16
   latent_width: 128
   latent_depth: 8
-  vocabulary_size: 32768
+  vocabulary_size: 1024
   bottleneck_kernel_size: 0
   channel_dim_change_list: [2, 2, 2, 2, 2, 2]
-  sin_locations: [3, 4, 5]
+  sin_locations: [1, 2, 3]
   amp: False
   input_channels: 1
 
 learning:
   batch_size: 8
-  learning_rate: 0.0003
-  weight_decay: 0.01
+  learning_rate: 0.0002
+  weight_decay: 0.0
   epochs: 100
   gradient_clip: 0.5
   beta_ema: 0.9999
   monitored_loss: Validation total loss
   dataset_path: data/music_samples/
-  scheduler_type: 'one_cycle_lr'
+  scheduler_type: 'none'
   dataset_name: 'music_slice_dataset'
   eval_split_factor: 0.01
 

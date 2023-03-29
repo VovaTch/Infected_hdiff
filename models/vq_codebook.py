@@ -35,6 +35,7 @@ class VQCodebook(nn.Module):
     def random_restart(self):
         #  randomly restart all dead codes below threshold with random code in codebook
         dead_codes = torch.nonzero(self.usage < self.usage_threshold).squeeze(1)
+        print(f'Number of dead codes: {dead_codes.shape[0]}')
         rand_codes = torch.randperm(self.num_tokens)[0:len(dead_codes)]
         with torch.no_grad():
             self.code_embedding[dead_codes] = self.code_embedding[rand_codes]
