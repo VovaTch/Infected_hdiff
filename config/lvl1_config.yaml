@@ -9,12 +9,12 @@ model:
   vocabulary_size: 32768
   bottleneck_kernel_size: 0
   channel_dim_change_list: [2, 2, 2, 2, 2, 2]
-  sin_locations: [4, 5, 6]
+  sin_locations: []
   amp: False
   input_channels: 1
 
 learning:
-  batch_size: 8
+  batch_size: 16
   learning_rate: 0.0002
   weight_decay: 0.0
   epochs: 100
