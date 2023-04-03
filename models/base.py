@@ -7,7 +7,8 @@ import loaders
 
 DATASETS = {'music_slice_dataset': loaders.MP3SliceDataset,
             'denoising_dataset': loaders.DenoiseDataset,
-            'lvl2_dataset': loaders.Lvl3InputDataset}
+            'lvl2_dataset': loaders.Lvl2InputDataset,
+            'lvl3_dataset': loaders.Lvl3InputDataset}
 
 
 class BaseNetwork(pl.LightningModule):

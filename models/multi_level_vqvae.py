@@ -243,6 +243,7 @@ class MultiLvlVQVariationalAutoEncoder(BaseNetwork):
         decoder_dim_changes = list(reversed(channel_dim_change_list))
         
         # Initialize network parts
+        self.input_channels = input_channels
         self.encoder = Encoder1D(encoder_channel_list, encoder_dim_changes, input_channels=input_channels)
         self.decoder = Decoder1D(decoder_channel_list, decoder_dim_changes, sin_locations=sin_locations, 
                                    bottleneck_kernel_size=bottleneck_kernel_size, input_channels=input_channels)
@@ -252,7 +253,7 @@ class MultiLvlVQVariationalAutoEncoder(BaseNetwork):
     def forward(self, x: torch.Tensor, extract_losses: bool=False):
         
         origin_shape = x.shape
-        x = x.reshape((x.shape[0], 1, -1))
+        x = x.reshape((x.shape[0], self.input_channels, -1))
         
         z_e = self.encoder(x)
         vq_block_output = self.vq_module(z_e, extract_losses=True)
@@ -263,7 +264,7 @@ class MultiLvlVQVariationalAutoEncoder(BaseNetwork):
         
         if extract_losses:
             
-            total_output.update({'reconstruction_loss': self._phased_loss(x, x_out, F.l1_loss)})
+            total_output.update({'reconstruction_loss': self._phased_loss(F.tanh(x), F.tanh(x_out), F.l1_loss)})
             
             if self.mel_spec is not None:
                 total_output.update({'stft_loss': F.l1_loss(self._mel_spec_and_process(x), 

@@ -17,12 +17,12 @@ def main(args):
     
     # Load vqvae model
     vqvae = MultiLvlVQVariationalAutoEncoder(**cfg_2)
-    vqvae = vqvae.load_from_checkpoint(args.resume, **cfg_3).to(device)
+    vqvae = vqvae.load_from_checkpoint(args.resume, **cfg_2).to(device)
     vqvae._set_dataset()
     print(f'Loaded model from {args.resume}.')
     
     # Load the lvl2 dataset
-    dataset = Lvl3InputDataset(**cfg_3, device=device, lvl1_dataset=vqvae.dataset, lvl2_vqvae=vqvae)
+    dataset = Lvl3InputDataset(**cfg_3, device=device, lvl2_dataset=vqvae.dataset, lvl2_vqvae=vqvae)
     loader = DataLoader(dataset, batch_size=4)
     
     # Print the sample sizes and the name of the track.
@@ -36,9 +36,9 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('-c2', '--config1', type=str, default='config/lvl2_config.yaml',
+    parser.add_argument('-c2', '--config2', type=str, default='config/lvl2_config.yaml',
                         help='Config for the first level.')
-    parser.add_argument('-c3', '--config2', type=str, default='config/lvl3_config.yaml',
+    parser.add_argument('-c3', '--config3', type=str, default='config/lvl3_config.yaml',
                         help='Config for the second level.')
     parser.add_argument('-r', '--resume', type=str, default="model_weights/lvl2_vqvae.ckpt",
                         help='Path of the weights for the lvl2 vqvae model.')

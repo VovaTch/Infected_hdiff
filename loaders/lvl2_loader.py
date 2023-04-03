@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 SLICE_LENGTH = 32768 # TODO: make it not hardcoded
 
 
-class Lvl3InputDataset(Dataset):
+class Lvl2InputDataset(Dataset):
     """
     This class takes the encoded level 1 vqvae latent vectors and collects them all in a .pt file, to be loaded for the level 2 training.
     The level 2 vqvae training will take 8 latents concatenated together as a sample.

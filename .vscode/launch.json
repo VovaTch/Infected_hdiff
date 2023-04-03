@@ -29,7 +29,7 @@
             "module": "scripts.train",
             "console": "integratedTerminal",
             "justMyCode": true,
-            "args": ["-d", "2", "-a", "lvl1vqvae"]
+            "args": ["-d", "1", "-a", "lvl2vqvae"]
         },
 
         {
@@ -67,6 +67,17 @@
             "type": "python",
             "request": "launch",
             "module": "scripts.create_lvl2_dataset",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": ["-d", "cuda"]
+        },
+
+
+        {
+            "name": "Python: Create Lvl3 Dataset",
+            "type": "python",
+            "request": "launch",
+            "module": "scripts.create_lvl3_dataset",
             "console": "integratedTerminal",
             "justMyCode": true,
             "args": ["-d", "cuda"]
