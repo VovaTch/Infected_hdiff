@@ -6,12 +6,12 @@ import torch.nn.functional as F
 from torchaudio.transforms import MelSpectrogram
 
 from .vq_codebook import VQCodebook
-from loaders import MP3SliceDataset, Lvl2InputDataset, Lvl4InputDataset, Lvl4InputDataset
+from loaders import MP3SliceDataset, Lvl2InputDataset, Lvl3InputDataset, Lvl4InputDataset
 from .base import BaseNetwork
 
 DATASETS = {'music_slice_dataset': MP3SliceDataset,
             'lvl2_dataset': Lvl2InputDataset,
-            'lvl3_dataset': Lvl4InputDataset,
+            'lvl3_dataset': Lvl3InputDataset,
             'lvl4_dataset': Lvl4InputDataset}
 
 

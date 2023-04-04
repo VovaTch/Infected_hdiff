@@ -8,7 +8,7 @@ import loaders
 DATASETS = {'music_slice_dataset': loaders.MP3SliceDataset,
             'denoising_dataset': loaders.DenoiseDataset,
             'lvl2_dataset': loaders.Lvl2InputDataset,
-            'lvl3_dataset': loaders.Lvl4InputDataset,
+            'lvl3_dataset': loaders.Lvl3InputDataset,
             'lvl4_dataset': loaders.Lvl4InputDataset}
 
 

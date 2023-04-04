@@ -2,7 +2,7 @@ import argparse
 
 from torch.utils.data import DataLoader
 
-from loaders.lvl3_loader import Lvl4InputDataset
+from loaders.lvl3_loader import Lvl3InputDataset
 from models.multi_level_vqvae import MultiLvlVQVariationalAutoEncoder
 from utils.other import load_cfg_dict
 
@@ -22,7 +22,7 @@ def main(args):
     print(f'Loaded model from {args.resume}.')
     
     # Load the lvl2 dataset
-    dataset = Lvl4InputDataset(**cfg_3, device=device, lvl2_dataset=vqvae.dataset, lvl2_vqvae=vqvae)
+    dataset = Lvl3InputDataset(**cfg_3, device=device, lvl2_dataset=vqvae.dataset, lvl2_vqvae=vqvae)
     loader = DataLoader(dataset, batch_size=4)
     
     # Print the sample sizes and the name of the track.
