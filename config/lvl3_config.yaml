@@ -24,7 +24,7 @@ learning:
   monitored_loss: Validation total loss
   dataset_path: data/music_samples/
   scheduler_type: 'none'
-  dataset_name: 'lvl2_dataset'
+  dataset_name: 'lvl3_dataset'
 
   loss_dict:
     loss_beta: 0.5

@@ -6,7 +6,7 @@ model:
   hidden_size: 16
   latent_width: 128
   latent_depth: 8
-  vocabulary_size: 32768
+  vocabulary_size: 8192
   bottleneck_kernel_size: 0
   channel_dim_change_list: [2, 2, 2, 2, 2, 2]
   sin_locations: []
@@ -27,7 +27,7 @@ learning:
   dataset_name: 'lvl2_dataset'
 
   loss_dict:
-    loss_beta: 0.5
+    loss_beta: 2.5
     loss_reconstruction: 1.0
     loss_mel: 0.0
     loss_mel_sub_1: 0.0

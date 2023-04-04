@@ -5,6 +5,7 @@ import torch.nn as nn
 
 from .mel_spec_loss import MelSpecLoss
 from .rec_loss import RecLoss
+from .codebook_losses import AlignLoss, CommitLoss
 
 
 LOSS_TYPES = {'mel_spec': MelSpecLoss,

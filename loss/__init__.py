@@ -1,1 +1,1 @@
-from total import TotalLoss
+from .total_loss import TotalLoss

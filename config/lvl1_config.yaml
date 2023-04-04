@@ -14,10 +14,10 @@ model:
   input_channels: 1
 
 learning:
-  batch_size: 16
+  batch_size: 4
   learning_rate: 0.0002
   weight_decay: 0.0
-  epochs: 100
+  epochs: 10
   gradient_clip: 0.5
   beta_ema: 0.9999
   monitored_loss: Validation total loss
@@ -28,7 +28,7 @@ learning:
 
   loss_dict:
     loss_beta: 0.5
-    loss_reconstruction: 0.01
+    loss_reconstruction: 0.0
     loss_mel: 1.0
     loss_mel_sub_1: 1.0
     loss_mel_sub_2: 1.0
