@@ -87,6 +87,32 @@ def train_lvl_3_encoder(args):
         save_path = f'/content/drive/MyDrive/net_weights/IHDF/lvl3_vqvae.ckpt'
         trainer.save_checkpoint(save_path, weights_only=True)
         print(f'Saved network weights in {save_path}.')
+        
+        
+def train_lvl_4_encoder(args):
+    
+    if IN_COLAB:
+        print('Running on Google Colab.')
+    
+    # Load model
+    config_path = args.config if args.config is not None else 'config/lvl4_config.yaml'
+    cfg = load_cfg_dict(config_path)
+    model = MultiLvlVQVariationalAutoEncoder(**cfg)
+    if args.resume is not None:
+        model = model.load_from_checkpoint(args.resume, **cfg, strict=False)
+        
+    # Initialize trainer
+    trainer = initialize_trainer(cfg, num_devices=args.num_devices)
+    
+    # Start training
+    trainer.fit(model)
+    
+    # If running on Colab
+    if IN_COLAB:
+        print('Saving checkpoint in Google Drive:')
+        save_path = f'/content/drive/MyDrive/net_weights/IHDF/lvl4_vqvae.ckpt'
+        trainer.save_checkpoint(save_path, weights_only=True)
+        print(f'Saved network weights in {save_path}.')
     
 
 def train_denoiser(args):
@@ -159,6 +185,9 @@ def main(args):
     
     elif choice == 'lvl3vqvae':
         train_lvl_3_encoder(args)
+        
+    elif choice == 'lvl4vqvae':
+        train_lvl_4_encoder(args)
     
     elif choice == 'denoiser':
         train_denoiser(args)
@@ -176,6 +205,7 @@ if __name__ == '__main__':
     parser.add_argument('-a', '--algorithm', type=str, choices=['lvl1vqvae', 
                                                                 'lvl2vqvae', 
                                                                 'lvl3vqvae', 
+                                                                'lvl4vqvae',
                                                                 'denoiser', 
                                                                 'denoiser_diff'],
                         help='The type of algorithm to train')
