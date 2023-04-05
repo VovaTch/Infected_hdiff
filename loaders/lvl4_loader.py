@@ -9,7 +9,7 @@ import tqdm
 import pickle
 
 if TYPE_CHECKING:
-    from .lvl3_loader import Lvl4InputDataset
+    from .lvl3_loader import Lvl3InputDataset
     from models.multi_level_vqvae import MultiLvlVQVariationalAutoEncoder
 
 
@@ -24,7 +24,7 @@ class Lvl4InputDataset(Dataset):
     
     def __init__(self,
                  collection_parameter: int=8,
-                 lvl3_dataset: 'Lvl4InputDataset'=None,
+                 lvl3_dataset: 'Lvl3InputDataset'=None,
                  lvl3_vqvae: 'MultiLvlVQVariationalAutoEncoder'=None,
                  device: str="cpu",
                  preload: bool=True,
