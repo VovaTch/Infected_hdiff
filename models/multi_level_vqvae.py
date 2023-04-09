@@ -266,11 +266,7 @@ class MultiLvlVQVariationalAutoEncoder(BaseNetwork):
         
         if extract_losses:
             
-<<<<<<< HEAD
-            total_output.update({'reconstruction_loss': self._phased_loss(x, x_out, F.l1_loss)})
-=======
             total_output.update({'reconstruction_loss': self._phased_loss(x, x_out, F.smooth_l1_loss)})
->>>>>>> 9f0bcb923a4692e2e4fe81ea66fab1c4ee5090fb
             
             if self.mel_spec is not None:
                 total_output.update({'stft_loss': F.smooth_l1_loss(self._mel_spec_and_process(x), 
