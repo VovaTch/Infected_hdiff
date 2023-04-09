@@ -8,8 +8,8 @@ model:
   latent_depth: 8
   vocabulary_size: 8192
   bottleneck_kernel_size: 0
-  channel_dim_change_list: [2, 2, 2, 2, 2, 2]
-  sin_locations: [1, 3, 5]
+  channel_dim_change_list: [2, 2, 2]
+  sin_locations: []
   amp: False
   input_channels: 1
 

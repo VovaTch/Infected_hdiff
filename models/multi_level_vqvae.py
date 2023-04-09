@@ -266,17 +266,17 @@ class MultiLvlVQVariationalAutoEncoder(BaseNetwork):
         
         if extract_losses:
             
-            total_output.update({'reconstruction_loss': self._phased_loss(F.tanh(x), F.tanh(x_out), F.l1_loss)})
+            total_output.update({'reconstruction_loss': self._phased_loss(x, x_out, F.smooth_l1_loss)})
             
             if self.mel_spec is not None:
-                total_output.update({'stft_loss': F.l1_loss(self._mel_spec_and_process(x), 
-                                                            self._mel_spec_and_process(x_out))})
+                total_output.update({'stft_loss': F.smooth_l1_loss(self._mel_spec_and_process(x), 
+                                                                   self._mel_spec_and_process(x_out))})
             if self.mel_spec_sub_1 is not None:
-                total_output.update({'stft_loss_sub_1': F.l1_loss(self._mel_spec_sub_1_and_process(x), 
-                                                                  self._mel_spec_sub_1_and_process(x_out))})
+                total_output.update({'stft_loss_sub_1': F.smooth_l1_loss(self._mel_spec_sub_1_and_process(x), 
+                                                                         self._mel_spec_sub_1_and_process(x_out))})
             if self.mel_spec_sub_2 is not None:
-                total_output.update({'stft_loss_sub_2': F.l1_loss(self._mel_spec_sub_2_and_process(x), 
-                                                                  self._mel_spec_sub_2_and_process(x_out))})
+                total_output.update({'stft_loss_sub_2': F.smooth_l1_loss(self._mel_spec_sub_2_and_process(x), 
+                                                                         self._mel_spec_sub_2_and_process(x_out))})
         
         return total_output
     
