@@ -391,16 +391,14 @@ class DiffusionViT(BaseNetwork):
         batch_size = noisy_input.shape[0]
         for time_step in reversed(range(self.num_steps)):
             
-            if time_step < 30:
+            time_input = torch.tensor([time_step for _ in range(batch_size)]).to(self.device)
+            running_slice = self.sample_timestep(running_slice, time_input, conditionals)
+            running_slice = torch.tanh(running_slice)
             
-                time_input = torch.tensor([time_step for _ in range(batch_size)]).to(self.device)
-                running_slice = self.sample_timestep(running_slice, time_input, conditionals)
-                running_slice = torch.tanh(running_slice)
-                
-                if show_process_plots:
-                    plt.figure(figsize=(25, 5))
-                    plt.ylim((-1.1, 1.1))
-                    plt.plot(running_slice[0, ...].squeeze(0).cpu().detach().numpy())
-                    plt.show()
+            if show_process_plots:
+                plt.figure(figsize=(25, 5))
+                plt.ylim((-1.1, 1.1))
+                plt.plot(running_slice[0, ...].squeeze(0).cpu().detach().numpy())
+                plt.show()
             
         return running_slice

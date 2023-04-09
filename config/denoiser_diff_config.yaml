@@ -13,10 +13,10 @@ model:
   amp: False
 
 learning:
-  batch_size: 8
-  learning_rate: 0.0001
-  weight_decay: 0.00
-  epochs: 30
+  batch_size: 12
+  learning_rate: 0.0005
+  weight_decay: 0.01
+  epochs: 1000
   gradient_clip: 0.5
   beta_ema: 0.9999
   monitored_loss: Validation total loss
@@ -50,10 +50,10 @@ mel_spec_sub_1_config:
   mel_scale: "htk"
 
 mel_spec_sub_2_config:
-  n_fft: 256
+  n_fft: 512
   hop_length: 512
   n_mels: 64
   pad_mode: reflect
-  power: 1.0
+  power: 2.0
   norm: "slaney"
   mel_scale: "htk"

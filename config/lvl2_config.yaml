@@ -14,10 +14,14 @@ model:
   input_channels: 8
 
 learning:
-  batch_size: 4
+  batch_size: 8
   learning_rate: 0.0005
   weight_decay: 0.0
+<<<<<<< HEAD
   epochs: 300
+=======
+  epochs: 500
+>>>>>>> 9f0bcb923a4692e2e4fe81ea66fab1c4ee5090fb
   gradient_clip: 0.5
   beta_ema: 0.9999
   eval_split_factor: 0.01
@@ -57,6 +61,6 @@ mel_spec_sub_2_config:
   hop_length: 512
   n_mels: 64
   pad_mode: reflect
-  power: 1.0
+  power: 2.0
   norm: "slaney"
   mel_scale: "htk"
