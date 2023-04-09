@@ -28,7 +28,7 @@ learning:
 
   loss_dict:
     loss_beta: 0.5
-    loss_reconstruction: 0.01
+    loss_reconstruction: 0.0
     loss_mel: 1.0
     loss_mel_sub_1: 1.0
     loss_mel_sub_2: 1.0
@@ -56,7 +56,7 @@ mel_spec_sub_2_config:
   hop_length: 512
   n_mels: 64
   pad_mode: reflect
-  power: 1.0
+  power: 2.0
   norm: "slaney"
   mel_scale: "htk"
   
