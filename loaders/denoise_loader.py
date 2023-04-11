@@ -4,8 +4,6 @@ from typing import TYPE_CHECKING
 import torch
 from torch.utils.data import Dataset, DataLoader
 import tqdm
-import csv
-import numpy as np
 
 if TYPE_CHECKING:
     from .music_loader import MP3SliceDataset

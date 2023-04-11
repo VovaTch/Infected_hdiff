@@ -17,7 +17,7 @@ class MelSpecLoss(LossBase):
         assert loss_cfg['base_loss_type'] in BASE_LOSS_TYPES, f'The base loss type'\
             ' must be one of: {[loss_type for loss_type in BASE_LOSS_TYPES]}'
         self.base_loss_type = BASE_LOSS_TYPES[loss_cfg['base_loss_type']]
-        self.mel_spec = MelSpectrogram(**loss_cfg)
+        self.mel_spec = MelSpectrogram(**loss_cfg['melspec_params'])
         
         self.lin_start = loss_cfg['lin_start']
         self.lin_end = loss_cfg['lin_end']

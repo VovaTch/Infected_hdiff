@@ -29,7 +29,7 @@
             "module": "scripts.train",
             "console": "integratedTerminal",
             "justMyCode": true,
-            "args": ["-d", "1", "-a", "lvl2vqvae"]
+            "args": ["-d", "0", "-a", "lvl1vqvae"]
         },
 
         {

@@ -1,14 +1,49 @@
 import argparse
 import sys
 
-from models.multi_level_vqvae import MultiLvlVQVariationalAutoEncoder
+# from models.multi_level_vqvae import MultiLvlVQVariationalAutoEncoder
+from models.multi_level_vqvae_new import MultiLvlVQVariationalAutoEncoder
 from models.unet_denoiser import WaveUNet_Denoiser
 from models.diffusion_vit import DiffusionViT
 from utils.other import load_cfg_dict, initialize_trainer
+from loss import TotalLoss
 
 
 # Check if we run in colab
 IN_COLAB = 'google.colab' in sys.modules
+
+
+def train_encoder(args, level: int=1):
+    
+    if IN_COLAB:
+        print('Running on Google Colab.')
+        
+    # Load model with loss
+    config_path_selection = {1: 'config/lvl1_config_new.yaml',
+                             2: '',
+                             3: '',
+                             4: ''}
+    config_path = config_path_selection[level] if args.config is None else args.config
+    cfg = load_cfg_dict(config_path)
+    loss = TotalLoss(cfg['loss'])
+    if args.resume is None:
+        model = MultiLvlVQVariationalAutoEncoder(**cfg, loss_obj=loss)
+    else:
+        model = MultiLvlVQVariationalAutoEncoder.load_from_checkpoint(args.resume, **cfg, loss_obj=loss)
+        
+    # Initialize trainer
+    trainer = initialize_trainer(cfg, num_devices=args.num_devices)
+    
+    # Start training
+    trainer.fit(model)
+    
+    # If running on Colab
+    if IN_COLAB:
+        print('Saving checkpoint in Google Drive:')
+        save_path = f'/content/drive/MyDrive/net_weights/IHDF/lvl{level}_vqvae.ckpt'
+        trainer.save_checkpoint(save_path, weights_only=True)
+        print(f'Saved network weights in {save_path}.')
+    
 
 
 def train_lvl_1_encoder(args):
@@ -177,8 +212,11 @@ def main(args):
     
     choice = args.algorithm
     
+    # if choice == 'lvl1vqvae':
+    #     train_lvl_1_encoder(args)
+    
     if choice == 'lvl1vqvae':
-        train_lvl_1_encoder(args)
+        train_encoder(args, level=1)
         
     elif choice == 'lvl2vqvae':
         train_lvl_2_encoder(args)

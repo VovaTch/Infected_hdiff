@@ -8,7 +8,7 @@ from .rec_loss import RecLoss
 from .codebook_losses import AlignLoss, CommitLoss
 
 
-LOSS_TYPES = {'mel_spec': MelSpecLoss,
+LOSS_TYPES = {'melspec': MelSpecLoss,
               'reconstruction': RecLoss,
               'alignment': AlignLoss,
               'commitment': CommitLoss}
@@ -32,10 +32,10 @@ class TotalLoss(nn.Module):
         Run a sum of multiplications of all the losses
         '''
         
-        loss_dict_values = {'total': 0}
+        loss_dict_values = {'total_loss': 0}
         for loss_type in self.cfg:
-            loss_dict_values[loss_type] = self.loss_weight_dict(x, x_target)
-            loss_dict_values['total'] += loss_dict_values[loss_type] * self.loss_weight_dict[loss_type]
+            loss_dict_values[loss_type] = self.loss_weight_dict[loss_type](x, x_target)
+            loss_dict_values['total_loss'] += loss_dict_values[loss_type] * self.loss_weight_dict[loss_type]
             
         return loss_dict_values
             

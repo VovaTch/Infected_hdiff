@@ -6,7 +6,8 @@ import torch.nn.functional as F
 
 
 BASE_LOSS_TYPES= {'l1_loss': F.l1_loss,
-                  'l2_loss': F.mse_loss}
+                  'l2_loss': F.mse_loss,
+                  'huber_loss': F.smooth_l1_loss}
 
 class LossBase(nn.Module):
     '''
