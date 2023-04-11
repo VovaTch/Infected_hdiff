@@ -78,23 +78,31 @@ def train_denoiser(args):
         print(f'Saved network weights in {save_path}.')
         
         
-def train_denoiser_diff(args):
+def train_denoiser_diff(args, level: int=0):
     
     if IN_COLAB:
         print('Running on Google Colab.')
         
-    # Load model
-    config_path = args.config if args.config is not None else 'config/denoiser_diff_config.yaml'
+    # Load model with loss
+    config_path_selection = {0: 'config/denoiser_diff_config.yaml',
+                             1: '',
+                             2: '',
+                             3: '',
+                             4: ''}
+    config_path = config_path_selection[level] if args.config is None else args.config
     cfg = load_cfg_dict(config_path)
-    model = DiffusionViT(**cfg)
-    if args.resume is not None:
-        model = model.load_from_checkpoint(args.resume, **cfg, strict=False)
+    loss = TotalLoss(cfg['loss'])
+    data_module = MusicDataModule(**cfg, latent_level=level + 1)
+    if args.resume is None:
+        model = DiffusionViT(**cfg, loss_obj=loss)
+    else:
+        model = DiffusionViT.load_from_checkpoint(args.resume, **cfg, loss_obj=loss)
         
     # Initialize trainer
     trainer = initialize_trainer(cfg, num_devices=args.num_devices)
         
     # Start training
-    trainer.fit(model)
+    trainer.fit(model, datamodule=data_module)
     
     # If running on Colab
     if IN_COLAB:

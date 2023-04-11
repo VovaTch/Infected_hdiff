@@ -5,13 +5,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
-import numpy as np
 from torchaudio.transforms import MelSpectrogram
 import matplotlib.pyplot as plt
 
 from .base import BaseNetwork
 from utils.diffusion import DiffusionConstants, forward_diffusion_sample, get_index_from_list
-from .dit_facebook import DiTBlock, TimestepEmbedder
+from loss import TotalLoss
 
 
 class AdaptiveBatchNorm2d(nn.Module):
@@ -62,7 +61,7 @@ class DiffusionViT(BaseNetwork):
                  num_blocks: int,
                  num_heads: int,
                  num_steps: int,
-                 loss_dict: Dict[str, float],
+                 loss_obj: TotalLoss=None,
                  dropout: float=0.0,
                  scheduler: str='cosine',
                  **kwargs) -> pl.LightningModule:
@@ -77,30 +76,10 @@ class DiffusionViT(BaseNetwork):
         self.num_heads = num_heads
         self.num_steps = num_steps
         self.diffusion_constants = DiffusionConstants(self.num_steps, scheduler=scheduler)
-        self.mel_factor = loss_dict['loss_mel']
-        self.mel_factor_sub_1 = loss_dict['loss_mel_sub_1']
-        self.mel_factor_sub_2 = loss_dict['loss_mel_sub_2']
-        self.reconstruction_factor = loss_dict['loss_reconstruction']
+        self.loss_obj = loss_obj
+        
         assert hidden_size % num_heads == 0, \
             f'The hidden dimension {hidden_size} must be divisible by the number of heads {num_heads}.'
-            
-        # Initialize mel spectrogram, TODO: Might do multiple ones for multiple losses
-        self.mel_spec = None
-        if 'mel_spec_config' in kwargs:
-            self.mel_spec_config = kwargs['mel_spec_config']
-            self.mel_spec = MelSpectrogram(sample_rate=kwargs['sample_rate'], **self.mel_spec_config)
-            
-        # Initialize the sub mel specs for additional losses
-        self.mel_spec_sub_1 = None
-        if 'mel_spec_sub_1_config' in kwargs:
-            self.mel_spec_config_sub_1 = kwargs['mel_spec_sub_1_config']
-            self.mel_spec_sub_1 = MelSpectrogram(sample_rate=kwargs['sample_rate'], **self.mel_spec_config_sub_1)
-            
-        # Initialize the sub mel specs for additional losses
-        self.mel_spec_sub_2 = None
-        if 'mel_spec_sub_2_config' in kwargs:
-            self.mel_spec_config_sub_2 = kwargs['mel_spec_sub_2_config']
-            self.mel_spec_sub_2 = MelSpectrogram(sample_rate=kwargs['sample_rate'], **self.mel_spec_config_sub_2)
             
         # Initialize layers
         self.fc_in = nn.Linear(in_dim * token_collect_size, hidden_size)
@@ -227,36 +206,27 @@ class DiffusionViT(BaseNetwork):
     def training_step(self, batch, batch_idx):
         music_slice = batch['music slice']
         time_steps = torch.randint(1, self.num_steps, (music_slice.shape[0],)).to(self.device)
-        loss = self.get_loss(music_slice, time_steps)
-        loss_total = loss['diffusion_error_loss'] * self.reconstruction_factor +\
-                     loss['stft_loss'] * self.mel_factor +\
-                     loss['stft_loss_sub_1'] * self.mel_factor_sub_1 +\
-                     loss['stft_loss_sub_2'] * self.mel_factor_sub_2
+        loss_combined = self.get_loss(music_slice, time_steps)
+        loss_total = loss_combined['total_loss']
         
-        loss_total = loss['diffusion_error_loss'] + loss['stft_loss'] * self.mel_factor\
-            + loss['stft_loss_sub_1'] * self.mel_factor_sub_1 + loss['stft_loss_sub_2'] * self.mel_factor_sub_2
-        self.log('Training diffusion loss', loss['diffusion_error_loss'])
-        self.log('Training stft loss', loss['stft_loss'])
-        self.log('Training stft loss sub 1', loss['stft_loss_sub_1'])
-        self.log('Training stft loss sub 2', loss['stft_loss_sub_2'])
-        self.log('Training total loss', loss_total)
+        for key, value in loss_combined.items():
+            if 'loss' in key.split('_'):
+                displayed_key = key.replace('_', ' ')
+                self.log(f'Training {displayed_key}', value)
+        
         return loss_total
     
     
     def validation_step(self, batch, batch_idx):
         music_slice = batch['music slice']
         time_steps = torch.randint(1, self.num_steps, (music_slice.shape[0],)).to(self.device)
-        loss = self.get_loss(music_slice, time_steps)
-        loss_total = loss['diffusion_error_loss'] * self.reconstruction_factor +\
-                     loss['stft_loss'] * self.mel_factor +\
-                     loss['stft_loss_sub_1'] * self.mel_factor_sub_1 +\
-                     loss['stft_loss_sub_2'] * self.mel_factor_sub_2
-                     
-        self.log('Validation diffusion loss', loss['diffusion_error_loss'])
-        self.log('Validation stft loss', loss['stft_loss'])
-        self.log('Validation stft loss sub 1', loss['stft_loss_sub_1'])
-        self.log('Validation stft loss sub 2', loss['stft_loss_sub_2'])
-        self.log('Validation total loss', loss_total, prog_bar=True)
+        loss_combined = self.get_loss(music_slice, time_steps)
+        
+        for key, value in loss_combined.items():
+            if 'loss' in key.split('_'):
+                prog_bar = True if key == 'total_loss' else False
+                displayed_key = key.replace('_', ' ')
+                self.log(f'Validation {displayed_key}', value, prog_bar=prog_bar)
         
         
     def _right_pad_if_necessary(self, x: torch.Tensor):
@@ -273,7 +243,7 @@ class DiffusionViT(BaseNetwork):
         return x
     
     
-    def get_loss(self, x_0, t, conditional_list=None):
+    def get_loss(self, x_0, t, conditional_list=None) -> Dict:
         
         # Create noisy image
         x_noisy, noise = forward_diffusion_sample(x_0, t, self.diffusion_constants, self.device)
@@ -287,54 +257,11 @@ class DiffusionViT(BaseNetwork):
         x_pred = 1 / sqrt_alphas_cumprod_t * (x_noisy - sqrt_one_minus_alphas_cumprod_t * noise_pred)
         
         # Compute losses
-        stft_loss = F.l1_loss(self._mel_spec_and_process(x_pred), 
-                              self._mel_spec_and_process(x_0))
-        stft_loss_sub_1 = F.l1_loss(self._mel_spec_sub_1_and_process(x_pred),
-                                    self._mel_spec_sub_1_and_process(x_0))
-        stft_loss_sub_2 = F.l1_loss(self._mel_spec_sub_2_and_process(x_pred),
-                                    self._mel_spec_sub_2_and_process(x_0))
-        return {'diffusion_error_loss': F.l1_loss(noise, noise_pred),
-                'stft_loss': stft_loss,
-                'stft_loss_sub_1': stft_loss_sub_1,
-                'stft_loss_sub_2': stft_loss_sub_2}
+        outputs_pred = {'noise_pred': noise_pred, 'output': x_pred}
+        outputs_target = {'noise': noise, 'music_slice': x_0}
         
-        
-    def _mel_spec_and_process(self, x: torch.Tensor):
-        """
-        To prepare the mel spectrogram loss, everything needs to be prepared.
-
-        Args:
-            x (torch.Tensor): Input, will be flattened
-        """
-        lin_vector = torch.linspace(0.5, 10, self.mel_spec_config['n_mels'])
-        eye_mat = torch.diag(lin_vector).to(self.device)
-        mel_out = self.mel_spec(x.flatten(start_dim=0, end_dim=1))
-        mel_out = torch.log(eye_mat @ mel_out + 1e-5)
-        return mel_out
-    
-    
-    def _mel_spec_sub_1_and_process(self, x: torch.Tensor):
-        '''
-        Prepares the sub_1 mel spectrogram loss
-        '''
-        
-        lin_vector = torch.linspace(1, 1, self.mel_spec_config_sub_1['n_mels'])
-        eye_mat = torch.diag(lin_vector).to(self.device)
-        mel_out = self.mel_spec_sub_1(x.flatten(start_dim=0, end_dim=1))
-        mel_out = torch.log(eye_mat @ mel_out + 1e-5)
-        return mel_out
-    
-    
-    def _mel_spec_sub_2_and_process(self, x: torch.Tensor):
-        '''
-        Prepares the sub_2 mel spectrogram loss
-        '''
-        
-        lin_vector = torch.linspace(0.1, 20, self.mel_spec_config_sub_2['n_mels'])
-        eye_mat = torch.diag(lin_vector).to(self.device)
-        mel_out = self.mel_spec_sub_2(x.flatten(start_dim=0, end_dim=1))
-        mel_out = torch.log(eye_mat @ mel_out + 1e-5)
-        return mel_out
+        loss_total = self.loss_obj(outputs_pred, outputs_target)
+        return loss_total
     
     
     @torch.no_grad()

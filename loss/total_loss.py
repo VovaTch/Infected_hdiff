@@ -4,14 +4,15 @@ import torch
 import torch.nn as nn
 
 from .mel_spec_loss import MelSpecLoss
-from .rec_loss import RecLoss
+from .rec_loss import RecLoss, NoisePredLoss
 from .codebook_losses import AlignLoss, CommitLoss
 
 
 LOSS_TYPES = {'melspec': MelSpecLoss,
               'reconstruction': RecLoss,
               'alignment': AlignLoss,
-              'commitment': CommitLoss}
+              'commitment': CommitLoss,
+              'noise': NoisePredLoss}
 
 class TotalLoss(nn.Module):
     

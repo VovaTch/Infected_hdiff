@@ -45,3 +45,22 @@ class RecLoss(LossBase):
                 loss_vector[idx * 2] = self.base_loss_type(x[:, :, idx:], x_target[:, :, :-idx])
                 loss_vector[idx * 2 + 1] = self.base_loss_type(x[:, :, :-idx], x_target[:, :, idx:])
         return loss_vector.min()
+    
+    
+class NoisePredLoss(LossBase):
+    """
+    Basic loss for reconstructing noise, used in diffusion
+    """
+    
+    def __init__(self, loss_cfg: Dict):
+        super().__init__(loss_cfg)
+        self.base_loss_type = BASE_LOSS_TYPES[loss_cfg['base_loss_type']]
+        
+    def forward(self, x, x_target):
+        
+        noise = x_target['noise']
+        noise_pred = x['noise_pred']
+        
+        return self.base_loss_type(noise, noise_pred)
+        
+    
