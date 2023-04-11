@@ -14,13 +14,14 @@ class AlignLoss(LossBase):
     def __init__(self, loss_cfg: Dict):
         
         super().__init__(loss_cfg)
+        self.base_loss_type = BASE_LOSS_TYPES[loss_cfg['base_loss_type']]
         
     def forward(self, x, x_target):
         
-        emb = x_target['emb']
-        z_e = x['z_e']
+        emb = x['emb']
+        z_e = x_target['z_e']
         
-        return torch.mean(torch.norm((emb - z_e.detach())**2, 2, 1))
+        return self.base_loss_type(emb, z_e.detach())
     
     
 class CommitLoss(LossBase):
@@ -31,11 +32,12 @@ class CommitLoss(LossBase):
     def __init__(self, loss_cfg: Dict):
         
         super().__init__(loss_cfg)
+        self.base_loss_type = BASE_LOSS_TYPES[loss_cfg['base_loss_type']]
         
     def forward(self, x, x_target):
         
-        emb = x_target['emb']
-        z_e = x['z_e']
-        
-        return torch.mean(torch.norm((emb.detach() - z_e)**2, 2, 1))
+        emb = x['emb']
+        z_e = x_target['z_e']
+
+        return self.base_loss_type(emb.detach(), z_e)
         

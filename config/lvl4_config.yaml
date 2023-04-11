@@ -26,37 +26,17 @@ learning:
   scheduler_type: 'none'
   dataset_name: 'lvl4_dataset'
 
-  loss_dict:
-    loss_beta: 0.5
-    loss_reconstruction: 1.0
-    loss_mel: 0.0
-    loss_mel_sub_1: 0.0
-    loss_mel_sub_2: 0.0
+loss:
 
+  reconstruction_loss:
+    weight: 0.1
+    base_loss_type: 'huber_loss'
+    phase_parameter: 10
 
-mel_spec_config:
-  n_fft: 1024
-  hop_length: 128
-  n_mels: 256
-  pad_mode: reflect
-  power: 1.0
-  norm: "slaney"
-  mel_scale: "htk"
+  alignment_loss:
+    weight: 2.5
+    base_loss_type: 'l2_loss'
 
-mel_spec_sub_1_config:
-  n_fft: 512
-  hop_length: 256
-  n_mels: 128
-  pad_mode: reflect
-  power: 2.0
-  norm: "slaney"
-  mel_scale: "htk"
-
-mel_spec_sub_2_config:
-  n_fft: 256
-  hop_length: 512
-  n_mels: 64
-  pad_mode: reflect
-  power: 1.0
-  norm: "slaney"
-  mel_scale: "htk"
+  commitment_loss:
+    weight: 2.5
+    base_loss_type: 'l2_loss'

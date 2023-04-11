@@ -34,7 +34,7 @@ class TotalLoss(nn.Module):
         
         loss_dict_values = {'total_loss': 0}
         for loss_type in self.cfg:
-            loss_dict_values[loss_type] = self.loss_weight_dict[loss_type](x, x_target)
+            loss_dict_values[loss_type] = self.loss_dict[loss_type](x, x_target)
             loss_dict_values['total_loss'] += loss_dict_values[loss_type] * self.loss_weight_dict[loss_type]
             
         return loss_dict_values

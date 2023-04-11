@@ -28,6 +28,8 @@ class MelSpecLoss(LossBase):
         pred_slice = x['output']
         target_slice = x_target['music_slice']
         
+        self.mel_spec = self.mel_spec.to(pred_slice.device)
+        
         return self.base_loss_type(self._mel_spec_and_process(pred_slice), self._mel_spec_and_process(target_slice))
         
         
@@ -38,7 +40,7 @@ class MelSpecLoss(LossBase):
         Args:
             x (torch.Tensor): Input, will be flattened
         """
-        lin_vector = torch.linspace(self.lin_start, self.lin_end, self.loss_cfg['n_mels'])
+        lin_vector = torch.linspace(self.lin_start, self.lin_end, self.loss_cfg['melspec_params']['n_mels'])
         eye_mat = torch.diag(lin_vector).to(x.device)
         mel_out = self.mel_spec(x.flatten(start_dim=0, end_dim=1))
         mel_out = torch.log(eye_mat @ mel_out + 1e-5)
