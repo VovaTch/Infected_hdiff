@@ -24,8 +24,8 @@ class Lvl2InputDataset(Dataset):
     
     def __init__(self,
                  collection_parameter: int=8,
-                 lvl1_dataset: 'MP3SliceDataset'=None,
-                 lvl1_vqvae: 'MultiLvlVQVariationalAutoEncoder'=None,
+                 prev_dataset: 'MP3SliceDataset'=None,
+                 prev_vqvae: 'MultiLvlVQVariationalAutoEncoder'=None,
                  device: str="cpu",
                  preload: bool=True,
                  preload_file_path: str="data/music_samples/001-datatensor.pt",
@@ -34,8 +34,8 @@ class Lvl2InputDataset(Dataset):
         
         # Initialize the object variables
         super().__init__()
-        self.lvl1_dataset = lvl1_dataset
-        self.lvl1_vqvae = lvl1_vqvae
+        self.lvl1_dataset = prev_dataset
+        self.lvl1_vqvae = prev_vqvae
         self.device = device
         self.preload = preload
         self.preload_file_path = preload_file_path
@@ -52,7 +52,7 @@ class Lvl2InputDataset(Dataset):
                 
             # Save pt file if it doesn't
             else:
-                assert lvl1_vqvae is not None and lvl1_dataset is not None, 'If no dataset file exists, must have vqvae and dataset.'
+                assert prev_vqvae is not None and prev_dataset is not None, 'If no dataset file exists, must have vqvae and dataset.'
                 self.processed_slice_data, self.metadata = self._create_lvl1_latents()
                 self.processed_slice_data = self.processed_slice_data.to(device)
                 torch.save(self.processed_slice_data, preload_file_path)
@@ -74,7 +74,7 @@ class Lvl2InputDataset(Dataset):
                 print(f'Saved music file at {preload_metadata_file_path}')
                 
         else:
-            assert lvl1_vqvae is not None and lvl1_dataset is not None, 'When not preloading the lvl1 vqvae and the dataset must be set.'
+            assert prev_vqvae is not None and prev_dataset is not None, 'When not preloading the lvl1 vqvae and the dataset must be set.'
             
         del self.lvl1_vqvae
                 

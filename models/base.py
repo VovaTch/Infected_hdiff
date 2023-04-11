@@ -5,11 +5,11 @@ from torch.utils.data import random_split, DataLoader
 import loaders
 
 
-DATASETS = {'music_slice_dataset': loaders.MP3SliceDataset,
-            'denoising_dataset': loaders.DenoiseDataset,
-            'lvl2_dataset': loaders.Lvl2InputDataset,
-            'lvl3_dataset': loaders.Lvl3InputDataset,
-            'lvl4_dataset': loaders.Lvl4InputDataset}
+# DATASETS = {'music_slice_dataset': loaders.MP3SliceDataset,
+#             'denoising_dataset': loaders.DenoiseDataset,
+#             'lvl2_dataset': loaders.Lvl2InputDataset,
+#             'lvl3_dataset': loaders.Lvl3InputDataset,
+#             'lvl4_dataset': loaders.Lvl4InputDataset}
 
 
 class BaseNetwork(pl.LightningModule):
@@ -19,10 +19,8 @@ class BaseNetwork(pl.LightningModule):
                  weight_decay: float,
                  batch_size: int,
                  epochs: int,
-                 dataset_name: str,
-                 dataset_path: str,
                  scheduler_type: str,
-                 eval_split_factor: float,
+                 steps_per_epoch: int=500,
                  **kwargs) -> pl.LightningModule:
         
         super().__init__()
@@ -33,55 +31,22 @@ class BaseNetwork(pl.LightningModule):
         self.weight_decay = weight_decay
         self.batch_size = batch_size
         self.epochs = epochs
-        self.dataset_name = dataset_name
-        self.dataset_path = dataset_path
         self.scheduler_name = scheduler_type
-        
-        # Datasets
-        assert dataset_name in DATASETS, f'Dataset {dataset_name} is not in the datasets options.'
-        assert 0 <= eval_split_factor <= 1, f'The split factor must be between 0 and 1, current value is {eval_split_factor}'
-        self.dataset = None
-        self.eval_split_factor = eval_split_factor
-        self.dataset_name = dataset_name
+        self.steps_per_epoch = steps_per_epoch
         
         # Optimizers
         assert scheduler_type in ['none', 'one_cycle_lr', 'reduce_on_platou'] # TODO fix typo, program the schedulers in
         self.scheduler_type = scheduler_type
-        
-        
-    def train_dataloader(self):
-        self._set_dataset()
-        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True)
-    
-    
-    def val_dataloader(self):
-        self._set_dataset()
-        return DataLoader(self.eval_dataset, batch_size=self.batch_size, shuffle=False)
-    
-    
-    def _set_dataset(self):
-        
-        if self.dataset is None:
-            self.dataset = DATASETS[self.dataset_name](**self.cfg)
-            train_dataset_length = int(len(self.dataset) * (1 - self.eval_split_factor))
-            self.train_dataset, self.eval_dataset = random_split(self.dataset, 
-                                                                (train_dataset_length, 
-                                                                len(self.dataset) - train_dataset_length))
             
             
     def configure_optimizers(self):
-        self._set_dataset()
-        if len(self.dataset) % self.batch_size == 0:
-            total_steps = len(self.dataset) // self.batch_size
-        else:
-            total_steps = len(self.dataset) // self.batch_size + 1
         
         optimizer = torch.optim.AdamW(self.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
         
         if self.scheduler_type == 'one_cycle_lr':
             scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=self.learning_rate, 
                                                             epochs=self.epochs,
-                                                            steps_per_epoch=total_steps)
+                                                            steps_per_epoch=self.steps_per_epoch)
         elif self.scheduler_type == 'reduce_on_plateau':
             scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=1e6)
             

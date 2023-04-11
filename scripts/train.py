@@ -6,6 +6,7 @@ from models.unet_denoiser import WaveUNet_Denoiser
 from models.diffusion_vit import DiffusionViT
 from utils.other import load_cfg_dict, initialize_trainer
 from loss import TotalLoss
+from loaders import MusicDataModule
 
 
 # Check if we run in colab
@@ -25,6 +26,7 @@ def train_encoder(args, level: int=1):
     config_path = config_path_selection[level] if args.config is None else args.config
     cfg = load_cfg_dict(config_path)
     loss = TotalLoss(cfg['loss'])
+    data_module = MusicDataModule(**cfg, latent_level=level)
     if args.resume is None:
         model = MultiLvlVQVariationalAutoEncoder(**cfg, loss_obj=loss)
     else:
@@ -34,7 +36,7 @@ def train_encoder(args, level: int=1):
     trainer = initialize_trainer(cfg, num_devices=args.num_devices)
     
     # Start training
-    trainer.fit(model)
+    trainer.fit(model, datamodule=data_module)
     
     # If running on Colab
     if IN_COLAB:
@@ -105,9 +107,6 @@ def train_denoiser_diff(args):
 def main(args):
     
     choice = args.algorithm
-    
-    # if choice == 'lvl1vqvae':
-    #     train_lvl_1_encoder(args)
     
     if choice == 'lvl1vqvae':
         train_encoder(args, level=1)
