@@ -180,7 +180,7 @@ class MultiLvlVQVariationalAutoEncoder(BaseNetwork):
     
     def __init__(self, 
                  sample_rate: int,
-                 slice_length: float,
+                 slice_time: float,
                  hidden_size: int,
                  latent_depth: int,
                  loss_obj: TotalLoss=None,
@@ -197,8 +197,8 @@ class MultiLvlVQVariationalAutoEncoder(BaseNetwork):
         self.loss_obj = loss_obj
         self.cfg = kwargs
         self.sample_rate = sample_rate
-        self.slice_length = slice_length
-        self.samples_per_slice = int(sample_rate * slice_length)
+        self.slice_time = slice_time
+        self.samples_per_slice = int(sample_rate * slice_time)
         self.hidden_size = hidden_size
         self.latent_depth = latent_depth
         self.vocabulary_size = vocabulary_size

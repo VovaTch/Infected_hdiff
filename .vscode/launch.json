@@ -63,21 +63,10 @@
         },
 
         {
-            "name": "Python: Create Lvl2 Dataset",
+            "name": "Python: Create Denoiser Dataset",
             "type": "python",
             "request": "launch",
-            "module": "scripts.create_lvl2_dataset",
-            "console": "integratedTerminal",
-            "justMyCode": true,
-            "args": ["-d", "cuda"]
-        },
-
-
-        {
-            "name": "Python: Create Lvl3 Dataset",
-            "type": "python",
-            "request": "launch",
-            "module": "scripts.create_lvl3_dataset",
+            "module": "scripts.create_denoise_dataset",
             "console": "integratedTerminal",
             "justMyCode": true,
             "args": ["-d", "cuda"]

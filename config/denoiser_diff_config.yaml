@@ -1,20 +1,20 @@
 model:
   name: denoiser_diffusion
   sample_rate: 44100
-  slice_length: 0.7430386 # Length of slice to get 2^15 samples
+  slice_time: 0.0464399125 # Length of slice to get 2048 samples
   in_dim: 1
   hidden_size: 512
   token_collect_size: 64
   num_blocks: 6
-  num_heads: 8
+  num_heads: 4
   dropout: 0.0
-  num_steps: 100
+  num_steps: 10
   schedulers: cosine
   amp: False
 
 
 learning:
-  batch_size: 12
+  batch_size: 16
   learning_rate: 0.0001
   weight_decay: 0.0001
   epochs: 1000
@@ -25,6 +25,9 @@ learning:
   scheduler_type: 'none'
   dataset_name: 'music_slice_dataset'
   eval_split_factor: 0.01
+  preload_data_file_path: 'data/music_samples/000-datatensor_short.pt'
+  preload_metadata_file_path: 'data/music_samples/000-metadata_short.pkl'
+  
 
 
 loss:

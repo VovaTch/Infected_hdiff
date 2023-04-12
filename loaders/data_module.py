@@ -1,3 +1,5 @@
+from typing import Dict
+
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader, random_split
 
@@ -5,12 +7,14 @@ from .music_loader import MP3SliceDataset
 from .lvl2_loader import Lvl2InputDataset
 from .lvl3_loader import Lvl3InputDataset
 from .lvl4_loader import Lvl4InputDataset
+from .lvl5_loader import Lvl5InputDataset
 
 
 DATASETS = {1: MP3SliceDataset,
             2: Lvl2InputDataset,
             3: Lvl3InputDataset,
-            4: Lvl4InputDataset}
+            4: Lvl4InputDataset,
+            5: Lvl5InputDataset}
 
 class MusicDataModule(pl.LightningDataModule):
     """
@@ -23,17 +27,19 @@ class MusicDataModule(pl.LightningDataModule):
                  eval_split_factor: float=0.01,
                  previous_dataset=None, 
                  previous_vqvae=None,
+                 dataset_cfg: Dict={},
                  data_path: str='data/music_samples/',
                  **kwargs):
         
         super().__init__()
-        assert latent_level in [1, 2, 3, 4], 'The latent level must be from 1 to 4.'
+        assert latent_level in [1, 2, 3, 4, 5], 'The latent level must be from 1 to 5.'
         self.latent_level = latent_level
         self.previous_dataset = previous_dataset # Previous dataset in case the data needs to be created
         self.previous_vqvae = previous_vqvae # Previous vqvae in case the data needs to be created
         self.batch_size = batch_size
         self.eval_split_factor = eval_split_factor
         self.data_path = data_path
+        self.dataset_cfg = dataset_cfg
         
         
     def setup(self, stage: str):
@@ -42,7 +48,8 @@ class MusicDataModule(pl.LightningDataModule):
             
             dataset = DATASETS[self.latent_level](prev_dataset=self.previous_dataset, 
                                                   prev_vqvae=self.previous_vqvae,
-                                                  audio_dir=self.data_path)
+                                                  audio_dir=self.data_path,
+                                                  **self.dataset_cfg)
             train_dataset_length = int(len(dataset) * (1 - self.eval_split_factor))
             self.train_dataset, self.eval_dataset = random_split(dataset, 
                                                                  (train_dataset_length, 

@@ -1,34 +1,31 @@
 import argparse
 
-import torch
+from torch.utils.data import DataLoader
 
-from models.multi_level_vqvae import MultiLvlVQVariationalAutoEncoder
-from utils.other import load_cfg_dict
 import loaders
-
+from utils.other import load_cfg_dict
 
 def main(args):
     
-    # Load model
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    config_path = args.config if args.config is not None else 'config/lvl1_config.yaml'
-    cfg = load_cfg_dict(config_path)
-    model = MultiLvlVQVariationalAutoEncoder(**cfg).to(device=device)
-    if args.resume is not None:
-        model = model.load_from_checkpoint(args.resume, **cfg, strict=False).to(device=device)
+    device = args.device
+    cfg_path = 'config/denoiser_diff_config.yaml'
+    cfg = load_cfg_dict(cfg_path)
+    dataset = loaders.MP3SliceDataset(**cfg, device=device, 
+                                      preload_data_file_path='data/music_samples/000-datatensor_short.pt',
+                                      preload_metadata_file_path='data/music_samples/000-metadata_short.pkl')
+
+    # Print the sample sizes and the name of the track.
+    loader = DataLoader(dataset, batch_size=4)
+    for batch in loader:
+        print(f"File name is {batch['track name']}")
+        print(f"The size of the slice is {batch['music slice'].shape}")
+        break
         
-    lvl1_dataset = loaders.MP3SliceDataset()
-    _ = loaders.DenoiseDataset(model, lvl1_dataset)
-    print('Data .pkl file was created.')
-    
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('-p', '--path', type=str, default='data/',
-                        help='Path for the pickle file to be created.')
-    parser.add_argument('-r', '--resume', type=str, default='model_weights/lvl1_vqvae.ckpt',
-                        help='Weights path for the lvl1 vqvae')
-    parser.add_argument('-c', '--config', type=str, default='config/lvl1_config.yaml',
-                        help='Path to the config file of the lvl1 vqvae')
+    parser.add_argument('-d', '--device', type=str, default='cuda',
+                        help='Device for the vqvae.')
     args = parser.parse_args()
+    
     main(args)

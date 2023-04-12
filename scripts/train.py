@@ -78,21 +78,21 @@ def train_denoiser(args):
         print(f'Saved network weights in {save_path}.')
         
         
-def train_denoiser_diff(args, level: int=0):
+def train_diff(args, level: int=0):
     
     if IN_COLAB:
         print('Running on Google Colab.')
         
     # Load model with loss
     config_path_selection = {0: 'config/denoiser_diff_config.yaml',
-                             1: '',
-                             2: '',
-                             3: '',
-                             4: ''}
+                             1: 'config/diff_lvl1_config.yaml',
+                             2: 'config/diff_lvl2_config.yaml',
+                             3: 'config/diff_lvl3_config.yaml',
+                             4: 'config/diff_lvl4_config.yaml'}
     config_path = config_path_selection[level] if args.config is None else args.config
     cfg = load_cfg_dict(config_path)
     loss = TotalLoss(cfg['loss'])
-    data_module = MusicDataModule(**cfg, latent_level=level + 1)
+    data_module = MusicDataModule(**cfg, latent_level=level + 1, dataset_cfg=cfg)
     if args.resume is None:
         model = DiffusionViT(**cfg, loss_obj=loss)
     else:
@@ -127,12 +127,24 @@ def main(args):
         
     elif choice == 'lvl4vqvae':
         train_encoder(args, level=4)
+        
+    elif choice == 'lvl1diff':
+        train_diff(args, level=1)
+        
+    elif choice == 'lvl2diff':
+        train_diff(args, level=2)
+        
+    elif choice == 'lvl3diff':
+        train_diff(args, level=3)
+        
+    elif choice == 'lvl4diff':
+        train_diff(args, level=4)
     
     elif choice == 'denoiser':
         train_denoiser(args)
         
     elif choice == 'denoiser_diff':
-        train_denoiser_diff(args)
+        train_diff(args, level=0)
     
     else:
         raise ValueError(f'The algorithm type {choice} does not exist')
@@ -145,6 +157,10 @@ if __name__ == '__main__':
                                                                 'lvl2vqvae', 
                                                                 'lvl3vqvae', 
                                                                 'lvl4vqvae',
+                                                                'lvl1diff',
+                                                                'lvl2diff',
+                                                                'lvl3diff',
+                                                                'lvl4diff',
                                                                 'denoiser', 
                                                                 'denoiser_diff'],
                         help='The type of algorithm to train')

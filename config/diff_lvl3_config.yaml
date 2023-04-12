@@ -1,22 +1,23 @@
 model:
-  name: vqvae_lvl_1
+  name: lvl3_diff
   sample_rate: 44100
   slice_time: 0.7430386 # Length of slice to get 2^15 samples
-  hidden_size: 96
-  latent_width: 128
-  latent_depth: 8
-  vocabulary_size: 8192
-  bottleneck_kernel_size: 0
-  channel_dim_change_list: [2, 2, 2]
-  sin_locations: []
+  in_dim: 8
+  hidden_size: 512
+  token_collect_size: 64
+  num_blocks: 6
+  num_heads: 8
+  dropout: 0.0
+  num_steps: 10
+  schedulers: cosine
   amp: False
-  input_channels: 8
+
 
 learning:
-  batch_size: 4
-  learning_rate: 0.0002
-  weight_decay: 0.0
-  epochs: 200
+  batch_size: 6
+  learning_rate: 0.0001
+  weight_decay: 0.0001
+  epochs: 1000
   gradient_clip: 0.5
   beta_ema: 0.9999
   monitored_loss: Validation total loss
@@ -25,23 +26,16 @@ learning:
   dataset_name: 'music_slice_dataset'
   eval_split_factor: 0.01
 
+
 loss:
 
-  reconstruction_loss:
-    weight: 0.1
-    base_loss_type: 'huber_loss'
+  noise_loss:
+    weight: 1.0
+    base_loss_type: 'l2_loss'
     phase_parameter: 10
 
-  alignment_loss:
-    weight: 10
-    base_loss_type: 'l2_loss'
-
-  commitment_loss:
-    weight: 10
-    base_loss_type: 'l2_loss'
-
   melspec_loss_1:
-    weight: 1.0
+    weight: 0.1
     base_loss_type: 'huber_loss'
     lin_start: 0.5
     lin_end: 10
@@ -56,7 +50,7 @@ loss:
       mel_scale: "htk"
 
   melspec_loss_2:
-    weight: 1.0
+    weight: 0.1
     base_loss_type: 'huber_loss'
     lin_start: 1.0
     lin_end: 1.0
@@ -71,7 +65,7 @@ loss:
       mel_scale: "htk"
 
   melspec_loss_3:
-    weight: 1.0
+    weight: 0.1
     base_loss_type: 'huber_loss'
     lin_start: 0.1
     lin_end: 20
@@ -84,4 +78,3 @@ loss:
       power: 2.0
       norm: "slaney"
       mel_scale: "htk"
-  
