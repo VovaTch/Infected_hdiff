@@ -29,17 +29,17 @@ def main(args):
         # Load the older model if necessary
         try:
             if idx > 1:
-                cfg_prev = load_cfg_dict(cfgs[idx])
+                cfg_prev = load_cfg_dict(cfgs[idx - 1])
                 prev_dataset = datasets[idx - 1](**cfg_prev, device=device)
                 prev_vqvae = MultiLvlVQVariationalAutoEncoder.load_from_checkpoint(vqvae_weights[idx - 1],
-                                                                                **cfg_prev, strict=False).to(device)
+                                                                                   **cfg_prev, strict=False).to(device)
             else:
                 cfg_prev = None
                 prev_dataset = None
                 prev_vqvae = None
                 
         except:
-            print(f'Could not load previous dataset and prevous vqvae level {idx - 1}')
+            print(f'Could not load previous dataset and previous vqvae level {idx - 1}')
             cfg_prev = None
             prev_dataset = None
             prev_vqvae = None
@@ -56,10 +56,12 @@ def main(args):
             print(f"The size of the slice is {batch['music slice'].shape}")
             break
         
+        del data_module, prev_dataset, prev_vqvae
+        
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('-d', '--device', type=str, default='cuda',
+    parser.add_argument('-d', '--device', type=str, default='cpu',
                         help='Device for the vqvae.')
     args = parser.parse_args()
     

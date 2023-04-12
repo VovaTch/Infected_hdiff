@@ -59,7 +59,7 @@
             "module": "scripts.train",
             "console": "integratedTerminal",
             "justMyCode": true,
-            "args": ["-d", "1", "-a", "denoiser_diff"]
+            "args": ["-d", "1", "-a", "lvl4diff"]
         },
 
         {
@@ -70,6 +70,16 @@
             "console": "integratedTerminal",
             "justMyCode": true,
             "args": ["-d", "cuda"]
+        },
+
+        {
+            "name": "Python: Create Dataset",
+            "type": "python",
+            "request": "launch",
+            "module": "scripts.create_datasets",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": ["-d", "cpu"]
         },
 
         {

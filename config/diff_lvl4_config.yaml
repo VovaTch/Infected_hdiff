@@ -1,7 +1,7 @@
 model:
   name: lvl4_diff
   sample_rate: 44100
-  slice_time: 0.7430386 # Length of slice to get 2^15 samples
+  slice_time: 0.18575965 # Length of slice to get 2^15 samples
   in_dim: 8
   hidden_size: 512
   token_collect_size: 64
@@ -33,48 +33,3 @@ loss:
     weight: 1.0
     base_loss_type: 'l2_loss'
     phase_parameter: 10
-
-  melspec_loss_1:
-    weight: 0.1
-    base_loss_type: 'huber_loss'
-    lin_start: 0.5
-    lin_end: 10
-    
-    melspec_params:
-      n_fft: 2048
-      hop_length: 512
-      n_mels: 128
-      pad_mode: reflect
-      power: 1.0
-      norm: "slaney"
-      mel_scale: "htk"
-
-  melspec_loss_2:
-    weight: 0.1
-    base_loss_type: 'huber_loss'
-    lin_start: 1.0
-    lin_end: 1.0
-
-    melspec_params:
-      n_fft: 1024
-      hop_length: 256
-      n_mels: 128
-      pad_mode: reflect
-      power: 2.0
-      norm: "slaney"
-      mel_scale: "htk"
-
-  melspec_loss_3:
-    weight: 0.1
-    base_loss_type: 'huber_loss'
-    lin_start: 0.1
-    lin_end: 20
-
-    melspec_params:
-      n_fft: 512
-      hop_length: 512
-      n_mels: 64
-      pad_mode: reflect
-      power: 2.0
-      norm: "slaney"
-      mel_scale: "htk"

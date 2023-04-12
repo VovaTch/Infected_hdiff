@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from models.multi_level_vqvae import MultiLvlVQVariationalAutoEncoder
 
 
-SLICE_LENGTH = 32768 # TODO: make it not hardcoded
+SLICE_LENGTH = 4096 # TODO: make it not hardcoded
 
 
 class Lvl5InputDataset(Dataset):
@@ -48,6 +48,7 @@ class Lvl5InputDataset(Dataset):
             if os.path.isfile(preload_file_path):
                 print(f'Loading file {preload_file_path}...')
                 self.processed_slice_data = torch.load(preload_file_path)
+                print(self.processed_slice_data.shape)
                 print(f'Music file {preload_file_path} is loaded.')
                 
             # Save pt file if it doesn't

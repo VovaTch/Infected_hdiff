@@ -28,9 +28,9 @@ learning:
 loss:
 
   reconstruction_loss:
-    weight: 0.1
+    weight: 1.0
     base_loss_type: 'huber_loss'
-    phase_parameter: 10
+    phase_parameter: 1
 
   alignment_loss:
     weight: 10
