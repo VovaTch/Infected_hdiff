@@ -34,8 +34,8 @@ loss:
 
   noise_loss:
     weight: 1.0
-    base_loss_type: 'l2_loss'
-    phase_parameter: 10
+    base_loss_type: 'huber_loss'
+    phase_parameter: 1
 
   melspec_loss_1:
     weight: 0.1

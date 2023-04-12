@@ -40,7 +40,7 @@ class InfectedHDiffIntegrator(Integrator):
         
         # Create the initial noise
         reduction_factor = np.prod(self.reduction_list)
-        number_of_sample_vectors = int(track_length * 44100 / (reduction_factor * self.latent_sizes[-1]))
+        number_of_sample_vectors = int(track_length * 44100 / (reduction_factor * self.latent_sizes[-1] * 8)) # This multiplication by 8 is a hack
         init_noise = torch.randn((1, self.latent_sizes[-1], number_of_sample_vectors)).to(self.device)
         running_data = init_noise
         
