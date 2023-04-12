@@ -1,0 +1,24 @@
+models:
+  diff_lvl4: 'config/diff_lvl4_config.yaml'
+  vqvae_lvl4: 'config/lvl4_config.yaml'
+  diff_lvl3: 'config/diff_lvl3_config.yaml'
+  vqvae_lvl3: 'config/lvl3_config.yaml'
+  diff_lvl2: 'config/diff_lvl2_config.yaml'
+  vqvae_lvl2: 'config/lvl2_config.yaml'
+  diff_lvl1: 'config/diff_lvl1_config.yaml'
+  vqvae_lvl1: 'config/lvl1_config.yaml'
+
+weight_paths:
+  diff_lvl4: 'model_weights/lvl4_diff.ckpt'
+  diff_lvl3: 'model_weights/lvl3_diff.ckpt'
+  diff_lvl2: 'model_weights/lvl2_diff.ckpt'
+  diff_lvl1: 'model_weights/lvl1_diff.ckpt'
+  vqvae_lvl4: 'model_weights/lvl4_vqvae.ckpt'
+  vqvae_lvl3: 'model_weights/lvl3_vqvae.ckpt'
+  vqvae_lvl2: 'model_weights/lvl2_vqvae.ckpt'
+  vqvae_lvl1: 'model_weights/lvl1_vqvae.ckpt'
+
+batch_size: 4
+batch_length: 4096
+reduction_list: [8, 8, 8, 2]
+latent_sizes: [8, 8, 8, 8]

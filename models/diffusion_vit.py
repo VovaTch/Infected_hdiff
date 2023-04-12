@@ -152,11 +152,7 @@ class DiffusionViT(BaseNetwork):
         """
         Forward method starts with x: BS x C x W, t: BS
         """
-        
-        # Prepare positional embeddings
-        pos_emb_range = torch.arange(0, x.shape[2] // self.token_collect_size).to(self.device)
-        pos_emb_mat = self.positional_encoding(pos_emb_range)
-        pos_emb_in = pos_emb_mat.unsqueeze(0).repeat((x.shape[0], 1, self.num_heads))
+
         
         # Transpose and divide the input into chunks
         x = self._patchify(x) # BS x bl x C*W/bl
@@ -189,7 +185,11 @@ class DiffusionViT(BaseNetwork):
         t_emb = self.time_mlp(t.int()).unsqueeze(1)
         
         # Prepare inputs to the transformer
-        x = self.fc_in(x) + pos_emb_in # BS x bl x h
+        x = self.fc_in(x)
+        pos_emb_range = torch.arange(0, x.shape[1]).to(self.device)
+        pos_emb_mat = self.positional_encoding(pos_emb_range)
+        pos_emb_in = pos_emb_mat.unsqueeze(0).repeat((x.shape[0], 1, self.num_heads))
+        x += pos_emb_in # BS x bl x h
         
         # Transformer
         x = self.transformer(torch.cat((x, total_cond, t_emb), dim=1), 
@@ -238,7 +238,7 @@ class DiffusionViT(BaseNetwork):
         if x_width % (self.in_dim * self.token_collect_size) != 0:
             num_missing_values = (self.in_dim * self.token_collect_size)\
                 - x_width % (self.in_dim * self.token_collect_size)
-            last_dim_padding = (0, num_missing_values)
+            last_dim_padding = (0, 0, 0, num_missing_values)
             x = F.pad(x, last_dim_padding)
         return x
     
@@ -280,8 +280,10 @@ class DiffusionViT(BaseNetwork):
         sqrt_recip_alphas_t = get_index_from_list(self.diffusion_constants.sqrt_recip_alphas, t, x.shape)
         
         # Call model (current image - noise prediction)
+        noise_pred = self(x, t, conditional_list)
+        x = self._right_pad_if_necessary(x.transpose(1, 2)).transpose(1, 2)
         model_mean = sqrt_recip_alphas_t * (x - 
-                                            betas_t * self(x, t, conditional_list) / sqrt_one_minus_alphas_cumprod_t)
+                                            betas_t * noise_pred / sqrt_one_minus_alphas_cumprod_t)
         posterior_variance_t = get_index_from_list(self.diffusion_constants.posterior_variance, t, x.shape)
         posterior_variance_t[t == 0] = 0
         

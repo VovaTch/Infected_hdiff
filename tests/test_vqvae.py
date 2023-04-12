@@ -8,7 +8,8 @@ from loaders.music_loader import MP3SliceDataset
 
 class TestLvl1VQVAE_cpu(unittest.TestCase):
     
-    def setUp(self):
+    def __init__(self, methodName: str = "runTest") -> None:
+        super().__init__(methodName)
         
         # Load model
         cfg_path = 'config/lvl1_config.yaml'
@@ -19,6 +20,8 @@ class TestLvl1VQVAE_cpu(unittest.TestCase):
         # Load dataset
         dataset = MP3SliceDataset()
         self.dataloader = DataLoader(dataset, batch_size=1, shuffle=True)
+    
+    def setUp(self):
         
         # Load batch
         for music_datapoint in self.dataloader:

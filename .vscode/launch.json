@@ -4,6 +4,7 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+
         {
             "name": "Python: Current File",
             "type": "python",
@@ -80,6 +81,16 @@
             "console": "integratedTerminal",
             "justMyCode": true,
             "args": ["-d", "cpu"]
+        },
+
+        {
+            "name": "Python: Run Integrator",
+            "type": "python",
+            "request": "launch",
+            "module": "scripts.run_integrator",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": ["-d", "cuda"]
         },
 
         {
