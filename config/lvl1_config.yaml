@@ -2,21 +2,21 @@ model:
   name: vqvae_lvl_1
   sample_rate: 44100
   slice_time: 0.7430386 # Length of slice to get 2^15 samples
-  hidden_size: 96
+  hidden_size: 16
   latent_width: 128
   latent_depth: 8
   vocabulary_size: 8192
   bottleneck_kernel_size: 0
-  channel_dim_change_list: [2, 2, 2]
-  sin_locations: []
+  channel_dim_change_list: [2, 2, 2, 2, 2, 2]
+  sin_locations: [4, 5]
   amp: False
-  input_channels: 8
+  input_channels: 1
 
 learning:
-  batch_size: 4
-  learning_rate: 0.0002
+  batch_size: 8
+  learning_rate: 0.0005
   weight_decay: 0.0
-  epochs: 200
+  epochs: 500
   gradient_clip: 0.5
   beta_ema: 0.9999
   monitored_loss: Validation total loss
@@ -34,17 +34,17 @@ loss:
 
   alignment_loss:
     weight: 10
-    base_loss_type: 'l2_loss'
+    base_loss_type: 'huber_loss'
 
   commitment_loss:
     weight: 10
-    base_loss_type: 'l2_loss'
+    base_loss_type: 'huber_loss'
 
   melspec_loss_1:
     weight: 1.0
     base_loss_type: 'huber_loss'
-    lin_start: 0.5
-    lin_end: 10
+    lin_start: 1.0
+    lin_end: 1.0
     
     melspec_params:
       n_fft: 2048
