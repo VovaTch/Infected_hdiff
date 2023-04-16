@@ -329,5 +329,5 @@ class DiffusionViT(BaseNetwork):
                 plt.ylim((-1.1, 1.1))
                 plt.plot(running_slice[0, ...].squeeze(0).cpu().detach().numpy())
                 plt.show()
-            
+                
         return running_slice
