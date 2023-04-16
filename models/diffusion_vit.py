@@ -114,8 +114,8 @@ class DiffusionViT(BaseNetwork):
         
         # Fit the data into the required shape
         for block_idx in range(x_required_size[2]):
-            data_slice = x[:, :, block_idx::x_required_size[2]]
-            #data_slice = x[:, :, block_idx * self.token_collect_size: (block_idx + 1) * self.token_collect_size]
+            # data_slice = x[:, :, block_idx::x_required_size[2]]
+            data_slice = x[:, :, block_idx * self.token_collect_size: (block_idx + 1) * self.token_collect_size]
             x_reshaped[:, :, block_idx] = data_slice.transpose(1, 2).flatten(start_dim=1)
             
         # Return the reshaped tensor
@@ -139,10 +139,10 @@ class DiffusionViT(BaseNetwork):
         for block_idx in range(x_reshaped_size[2]):
             data_slice = x_reshaped[:, :, block_idx]
             intermediate_block = data_slice.view((x_required_size[0], self.token_collect_size, x_required_size[1]))
-            # x[:, :, block_idx * self.token_collect_size: (block_idx + 1) * self.token_collect_size] =\
-            #     intermediate_block.transpose(1, 2)
-            x[:, :, block_idx::x_reshaped_size[2]] =\
+            x[:, :, block_idx * self.token_collect_size: (block_idx + 1) * self.token_collect_size] =\
                 intermediate_block.transpose(1, 2)
+            # x[:, :, block_idx::x_reshaped_size[2]] =\
+            #     intermediate_block.transpose(1, 2)
                 
         # Return the tensor with the original shape
         return x
