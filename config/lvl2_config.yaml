@@ -1,7 +1,7 @@
 model:
   name: vqvae_lvl_2
   sample_rate: 44100
-  slice_time: 0.7430386 # Length of slice to get 2^15 samples
+  slice_length: 0.7430386 # Length of slice to get 2^15 samples
   hidden_size: 64
   latent_width: 128
   latent_depth: 8
@@ -16,7 +16,7 @@ learning:
   batch_size: 8
   learning_rate: 0.0005
   weight_decay: 0.0
-  epochs: 300
+  epochs: 500
   gradient_clip: 0.5
   beta_ema: 0.9999
   eval_split_factor: 0.01
@@ -24,6 +24,7 @@ learning:
   dataset_path: data/music_samples/
   scheduler_type: 'none'
   dataset_name: 'lvl2_dataset'
+  eval_split_factor: 0.01
 
 
 loss:
