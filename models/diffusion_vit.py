@@ -114,7 +114,7 @@ class DiffusionViT(BaseNetwork):
         
         # Fit the data into the required shape
         for block_idx in range(x_required_size[2]):
-            #data_slice = x[:, :, block_idx::x_required_size[2]]
+            # data_slice = x[:, :, block_idx::x_required_size[2]]
             data_slice = x[:, :, block_idx * self.token_collect_size: (block_idx + 1) * self.token_collect_size]
             x_reshaped[:, :, block_idx] = data_slice.transpose(1, 2).flatten(start_dim=1)
             
