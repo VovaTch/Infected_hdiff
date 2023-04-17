@@ -144,8 +144,8 @@ class Decoder1D(nn.Module):
             if self.sin_locations is not None:
                 if idx + 1 in self.sin_locations:
                     z += torch.sin(z.clone())
-            # else:
-            #     z = F.gelu(z)
+            else:
+                z = F.gelu(z)
             
         x_out = self.end_conv(z)
             

@@ -8,7 +8,7 @@ model:
   vocabulary_size: 8192
   bottleneck_kernel_size: 0
   channel_dim_change_list: [2, 2, 2, 2, 2, 2]
-  sin_locations: [4, 5]
+  sin_locations: []
   amp: False
   input_channels: 1
 
@@ -16,7 +16,7 @@ learning:
   batch_size: 8
   learning_rate: 0.0005
   weight_decay: 0.0
-  epochs: 500
+  epochs: 100
   gradient_clip: 0.5
   beta_ema: 0.9999
   monitored_loss: Validation total loss
@@ -33,11 +33,11 @@ loss:
     phase_parameter: 1
 
   alignment_loss:
-    weight: 10
+    weight: 0.5
     base_loss_type: 'huber_loss'
 
   commitment_loss:
-    weight: 10
+    weight: 0.5
     base_loss_type: 'huber_loss'
 
   melspec_loss_1:

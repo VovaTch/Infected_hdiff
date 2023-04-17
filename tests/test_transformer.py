@@ -4,7 +4,7 @@ import unittest
 
 from models.diffusion_vit import DiffusionViT
 from utils.other import load_cfg_dict
-from loaders.lvl3_loader import Lvl3InputDataset
+from loaders.lvl2_loader import Lvl2InputDataset
 
 class TestDiT(unittest.TestCase):
     
@@ -18,7 +18,7 @@ class TestDiT(unittest.TestCase):
         self.cfg['batch_size'] = 1
         
         # Load dataset
-        dataset = Lvl3InputDataset()
+        dataset = Lvl2InputDataset()
         self.dataloader = DataLoader(dataset, batch_size=1, shuffle=True)
     
     def setUp(self):
