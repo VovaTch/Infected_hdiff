@@ -9,14 +9,14 @@ import numpy as np
 SCHEDULER_LIST = ['cosine']
 
 
-def linear_beta_schedule(timesteps, start=0.0001, end=0.075):
+def linear_beta_schedule(timesteps, start=0.00001, end=0.0075):
     return torch.linspace(start, end, timesteps)
 
 
-def cosine_schedule(timesteps: int, s=0.008):
+def cosine_schedule(timesteps: int, s=0.008, power: float=2):
     t_running = torch.linspace(1, timesteps, timesteps)
     alpha_running_sqrt = torch.cos(np.pi / 2 * (t_running / timesteps + s) / (1 + s))
-    return torch.pow(alpha_running_sqrt, 2)
+    return torch.pow(alpha_running_sqrt, power)
 
 
 def get_index_from_list(vals: torch.Tensor, t: torch.Tensor, x_shape: List[int]):

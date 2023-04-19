@@ -282,8 +282,7 @@ class DiffusionViT(BaseNetwork):
         # Call model (current image - noise prediction)
         noise_pred = self(x, t, conditional_list)
         x = self._right_pad_if_necessary(x.transpose(1, 2)).transpose(1, 2)
-        model_mean = sqrt_recip_alphas_t * (x - 
-                                            betas_t * noise_pred / sqrt_one_minus_alphas_cumprod_t)
+        model_mean = sqrt_recip_alphas_t * (x - betas_t * noise_pred / sqrt_one_minus_alphas_cumprod_t)
         posterior_variance_t = get_index_from_list(self.diffusion_constants.posterior_variance, t, x.shape)
         posterior_variance_t[t == 0] = 0
         
@@ -319,15 +318,16 @@ class DiffusionViT(BaseNetwork):
         running_slice = noisy_input.clone()
         batch_size = noisy_input.shape[0]
         for time_step in reversed(range(self.num_steps)):
-            
+
             time_input = torch.tensor([time_step for _ in range(batch_size)]).to(self.device)
             running_slice = self.sample_timestep(running_slice, time_input, conditionals)
-            running_slice = torch.tanh(running_slice)
             
             if show_process_plots:
                 plt.figure(figsize=(25, 5))
                 plt.ylim((-1.1, 1.1))
                 plt.plot(running_slice[0, ...].squeeze(0).cpu().detach().numpy())
                 plt.show()
-                
+                    
+        running_slice[running_slice > 1] = 1
+        running_slice[running_slice < -1] = -1
         return running_slice

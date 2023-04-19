@@ -2,15 +2,15 @@ model:
   name: vqvae_lvl_1
   sample_rate: 44100
   slice_time: 0.7430386 # Length of slice to get 2^15 samples
-  hidden_size: 16
+  hidden_size: 96
   latent_width: 128
   latent_depth: 8
   vocabulary_size: 8192
   bottleneck_kernel_size: 0
-  channel_dim_change_list: [2, 2, 2, 2, 2, 2]
-  sin_locations: [4, 5]
+  channel_dim_change_list: [2, 2, 2]
+  sin_locations: []
   amp: False
-  input_channels: 1
+  input_channels: 8
 
 learning:
   batch_size: 8

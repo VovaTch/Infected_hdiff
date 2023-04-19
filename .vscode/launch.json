@@ -60,7 +60,7 @@
             "module": "scripts.train",
             "console": "integratedTerminal",
             "justMyCode": true,
-            "args": ["-d", "1", "-a", "lvl4diff"]
+            "args": ["-d", "1", "-a", "denoiser_diff"]
         },
 
         {
