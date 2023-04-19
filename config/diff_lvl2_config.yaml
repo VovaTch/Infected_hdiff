@@ -9,7 +9,7 @@ model:
   num_heads: 8
   dropout: 0.0
   num_steps: 10
-  schedulers: cosine
+  scheduler: cosine
   amp: False
 
 
