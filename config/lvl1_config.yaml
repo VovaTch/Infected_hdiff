@@ -28,21 +28,21 @@ learning:
 loss:
 
   reconstruction_loss:
-    weight: 1.0
-    base_loss_type: 'huber_loss'
-    phase_parameter: 1
+    weight: 0.01
+    base_loss_type: 'l1_loss'
+    phase_parameter: 10
 
   alignment_loss:
     weight: 0.5
-    base_loss_type: 'huber_loss'
+    base_loss_type: 'l2_loss'
 
   commitment_loss:
     weight: 0.5
-    base_loss_type: 'huber_loss'
+    base_loss_type: 'l2_loss'
 
   melspec_loss_1:
     weight: 1.0
-    base_loss_type: 'huber_loss'
+    base_loss_type: 'l1_loss'
     lin_start: 1.0
     lin_end: 1.0
     
@@ -57,7 +57,7 @@ loss:
 
   melspec_loss_2:
     weight: 1.0
-    base_loss_type: 'huber_loss'
+    base_loss_type: 'l1_loss'
     lin_start: 1.0
     lin_end: 1.0
 
@@ -72,7 +72,37 @@ loss:
 
   melspec_loss_3:
     weight: 1.0
-    base_loss_type: 'huber_loss'
+    base_loss_type: 'l1_loss'
+    lin_start: 0.1
+    lin_end: 20
+
+    melspec_params:
+      n_fft: 512
+      hop_length: 512
+      n_mels: 64
+      pad_mode: reflect
+      power: 1.0
+      norm: "slaney"
+      mel_scale: "htk"
+
+  melspec_loss_4:
+    weight: 5.0
+    base_loss_type: 'l1_loss'
+    lin_start: 0.5
+    lin_end: 10.0
+    
+    melspec_params:
+      n_fft: 2048
+      hop_length: 512
+      n_mels: 128
+      pad_mode: reflect
+      power: 1.0
+      norm: "slaney"
+      mel_scale: "htk"
+
+  melspec_loss_5:
+    weight: 5.0
+    base_loss_type: 'l1_loss'
     lin_start: 0.1
     lin_end: 20
 

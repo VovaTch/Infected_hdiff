@@ -8,8 +8,8 @@ model:
   num_blocks: 6
   num_heads: 4
   dropout: 0.0
-  num_steps: 1000
-  schedulers: cosine
+  num_steps: 10
+  scheduler: cosine
   amp: False
 
 
