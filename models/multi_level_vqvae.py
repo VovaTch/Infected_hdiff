@@ -71,7 +71,12 @@ class Encoder1D(nn.Module):
     """
     
     
-    def __init__(self, channel_list: List[int], dim_change_list: List[int], input_channels: int=1):
+    def __init__(self, 
+                 channel_list: List[int], 
+                 dim_change_list: List[int], 
+                 input_channels: int=1, 
+                 kernel_size: int=5, 
+                 dim_change_kernel_size: int=5):
         
         super().__init__()
         assert len(channel_list) == len(dim_change_list) + 1, "The channel list length must be greater than the dimension change list by 1"
@@ -80,10 +85,10 @@ class Encoder1D(nn.Module):
         # Create the module lists for the architecture
         self.init_conv = nn.Conv1d(input_channels, channel_list[0], kernel_size=3, padding=1)
         self.conv_list = nn.ModuleList(
-            [ConvBlock1D(channel_list[idx], channel_list[idx + 1], 5) for idx in range(len(dim_change_list))]
+            [ConvBlock1D(channel_list[idx], channel_list[idx + 1], kernel_size) for idx in range(len(dim_change_list))]
         )
         self.dim_change_list = nn.ModuleList(
-            [ConvDownsample(kernel_size=5, downsample_divide=dim_change_param, in_dim=channel_list[idx + 1]) 
+            [ConvDownsample(kernel_size=dim_change_kernel_size, downsample_divide=dim_change_param, in_dim=channel_list[idx + 1]) 
              for idx, dim_change_param in enumerate(dim_change_list)]
         )
         
@@ -103,7 +108,13 @@ class Encoder1D(nn.Module):
 class Decoder1D(nn.Module):
     
     
-    def __init__(self, channel_list: List[int], dim_change_list: List[int], input_channels: int=1, sin_locations: List[int]=None,
+    def __init__(self, 
+                 channel_list: List[int], 
+                 dim_change_list: List[int], 
+                 input_channels: int=1, 
+                 sin_locations: List[int]=None,
+                 kernel_size: int=5,
+                 dim_add_kernel_add: int=12,
                  bottleneck_kernel_size: int=31):
         
         super().__init__()
@@ -122,17 +133,19 @@ class Decoder1D(nn.Module):
                 nn.Conv1d(channel_list[1], input_channels, kernel_size=bottleneck_kernel_size, padding=bottleneck_kernel_size // 2)
             )
         self.conv_list = nn.ModuleList(
-            [ConvBlock1D(channel_list[idx], channel_list[idx + 1], 5, activation_type='gelu') 
+            [ConvBlock1D(channel_list[idx], channel_list[idx + 1], kernel_size, activation_type='gelu') 
              for idx in range(len(dim_change_list))]
         )
+        assert dim_add_kernel_add % 2 == 0, 'dim_add_kernel_size must be an even number.'
         self.dim_change_list = nn.ModuleList(
             [nn.ConvTranspose1d(channel_list[idx + 1], channel_list[idx + 1], 
-                                kernel_size=dim_change_list[idx] + 12, stride=dim_change_list[idx], padding=6)
+                                kernel_size=dim_change_list[idx] + dim_add_kernel_add, 
+                                stride=dim_change_list[idx], 
+                                padding=dim_add_kernel_add // 2)
              for idx in range(len(dim_change_list))]
         )
         self.sin_locations = sin_locations
 
-        
         
     def forward(self, z):
         
@@ -191,6 +204,10 @@ class MultiLvlVQVariationalAutoEncoder(BaseNetwork):
                  input_channels: int=1,
                  sin_locations: List[int] = None,
                  channel_dim_change_list: List[int] = [2, 2, 2, 4, 4],
+                 encoder_kernel_size: int=5,
+                 encoder_dim_change_kernel_size: int=5,
+                 decoder_kernel_size: int=7,
+                 decoder_dim_change_kernel_add: int=12,
                  **kwargs):
         
         super().__init__(**kwargs)
@@ -214,9 +231,14 @@ class MultiLvlVQVariationalAutoEncoder(BaseNetwork):
         
         # Initialize network parts
         self.input_channels = input_channels
-        self.encoder = Encoder1D(encoder_channel_list, encoder_dim_changes, input_channels=input_channels)
+        self.encoder = Encoder1D(encoder_channel_list, encoder_dim_changes, 
+                                 input_channels=input_channels, 
+                                 kernel_size=encoder_kernel_size, 
+                                 dim_change_kernel_size=encoder_dim_change_kernel_size)
         self.decoder = Decoder1D(decoder_channel_list, decoder_dim_changes, sin_locations=sin_locations, 
-                                   bottleneck_kernel_size=bottleneck_kernel_size, input_channels=input_channels)
+                                   bottleneck_kernel_size=bottleneck_kernel_size, input_channels=input_channels,
+                                   kernel_size=decoder_kernel_size,
+                                   dim_add_kernel_add=decoder_dim_change_kernel_add)
         self.vq_module = VQ1D(latent_depth, num_tokens=vocabulary_size)
         
         

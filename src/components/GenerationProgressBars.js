@@ -1,12 +1,14 @@
-import React from 'react'
-import { ProgressBar } from 'react-bootstrap'
+import React from "react";
 
-function GenerationProgressBar(props) {
+const ProgressBar = (props) => {
+  const {bg_color, completed} = props;
   return (
     <div>
-        <ProgressBar variant={props.name} now={props.value}/>
+      <div>
+        <span>{`${completed}%`}</span>
+      </div>
     </div>
   )
 }
 
-export default GenerationProgressBars
+export default ProgressBar

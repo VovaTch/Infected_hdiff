@@ -5,12 +5,14 @@ import {ReactComponent as StopComponent} from './resources/stop.svg'
 import {ReactComponent as DownloadComponent} from './resources/download.svg'
 import {ReactComponent as CreateComponent} from './resources/create.svg'
 
-function PlayerControls() {
+function PlayerControls(props) {
   return (
     <div className='c-player--controls'>
         <button className="create-btn"><CreateComponent/></button>
-        <button className="play-btn"><PlayComponent/></button>
-        <button className="pause-btn"><PauseComponent/></button>
+        <button className="play-btn" onClick={() => props.setIsPlaying(!props.isPlaying)}>
+          <PlayComponent/>
+        </button>
+        <button className="pause-btn" onClick={() => props.setIsPlaying(false)}><PauseComponent/></button>
         <button className="stop-btn"><StopComponent/></button>
         <button className="download-btn"><DownloadComponent/></button>
     </div>

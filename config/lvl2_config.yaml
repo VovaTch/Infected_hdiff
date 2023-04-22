@@ -12,6 +12,11 @@ model:
   amp: False
   input_channels: 8
 
+  encoder_kernel_size: 5
+  encoder_dim_change_kernel_size: 5
+  decoder_kernel_size: 7
+  decoder_dim_change_kernel_add: 12
+
 learning:
   batch_size: 8
   learning_rate: 0.0005

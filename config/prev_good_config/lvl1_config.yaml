@@ -2,7 +2,7 @@ model:
   name: vqvae_lvl_1
   sample_rate: 44100
   slice_time: 0.7430386 # Length of slice to get 2^15 samples
-  hidden_size: 24
+  hidden_size: 16
   latent_width: 128
   latent_depth: 8
   vocabulary_size: 8192
@@ -12,13 +12,13 @@ model:
   amp: False
   input_channels: 1
 
-  encoder_kernel_size: 3
-  encoder_dim_change_kernel_size: 3
-  decoder_kernel_size: 3
-  decoder_dim_change_kernel_add: 0
+  encoder_kernel_size: 5
+  encoder_dim_change_kernel_size: 5
+  decoder_kernel_size: 7
+  decoder_dim_change_kernel_add: 12
 
 learning:
-  batch_size: 4
+  batch_size: 8
   learning_rate: 0.0005
   weight_decay: 0.0
   epochs: 100
@@ -91,7 +91,7 @@ loss:
       mel_scale: "htk"
 
   melspec_loss_4:
-    weight: 1.0
+    weight: 5.0
     base_loss_type: 'l1_loss'
     lin_start: 0.5
     lin_end: 10.0
@@ -106,7 +106,7 @@ loss:
       mel_scale: "htk"
 
   melspec_loss_5:
-    weight: 1.0
+    weight: 5.0
     base_loss_type: 'l1_loss'
     lin_start: 0.1
     lin_end: 20
