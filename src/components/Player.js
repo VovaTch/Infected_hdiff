@@ -6,9 +6,15 @@ function Player(props) {
 
   // Setting audio element and playing state
   const audioEl = useRef(null);
-  const [isPlaying, setIsPlaying] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentModel, setCurrentModel] = useState({
+    name: "",
+    num: 0,
+    progress: 1,
+  });
+  const [firstClick, setFirstClick] = useState(true)
 
-  // Audio play effect
+  // Use effect hooks
   useEffect(() => {
     if (isPlaying) {
       audioEl.current.play();
@@ -16,6 +22,11 @@ function Player(props) {
       audioEl.current.pause();
     }
   })
+  useEffect(() => {
+    if (!firstClick) {
+      props.addBar(currentModel.name, "#0015aa");
+    }
+  }, [currentModel, firstClick])
 
   // Create the window of the player
   return (
@@ -27,6 +38,8 @@ function Player(props) {
         <PlayerControls  
           isPlaying={isPlaying}
           setIsPlaying={setIsPlaying}
+          setCurrentModel={setCurrentModel}
+          createFirstClick={setFirstClick}
         />
         
     </div>

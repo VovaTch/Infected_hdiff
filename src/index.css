@@ -1,6 +1,7 @@
 :root {
     --primary: #353741;
     --secondary: #dbdce9;
+    --tertiary: #bcbed1;
     --dark: #0f0f11;
     --light: #f6f9ff;
 }
@@ -9,8 +10,9 @@
     margin: 0;
     padding: 0;
     border-style: border-box;
-    font-family: 'Fira Sans', sans-serif;
+    font-family: 'Lexend Deca', sans-serif;
     font-weight: 300;
+    text-align: center;
 }
 
 body {
@@ -25,38 +27,56 @@ body {
 
 .App > h1, h2 {
     color: var(--dark);
-    align-items: center;
-    display: block;
+    padding: 1%;
+    padding-bottom: 2%;
+}
+
+.App > h1 {
+    font-size: 500%;
+}
+
+.App > h2 {
+    font-size: 350%;
 }
 
 .c-player {
-    display: block;
+    display: flex;
+    flex-wrap: wrap;
+    flex-flow: space-evenly;
+    align-items: stretch;
+    align-content: stretch;
     background-color: var(--secondary);
     padding: auto;
     border-radius: 8px;
     box-shadow: 0x 2px 64px rgba(0, 0, 0, 0.2);
+    width: 75%;
+    margin: auto;
+}
+
+.c-player > * {
+    flex: 1 1 auto;
 }
 
 .c-player > h4 {
     color: var(--dark);
-    font-size: 20px;
+    font-size: 200%;
     text-transform: uppercase;
     text-align: center;
-    padding-top: 30px;
+    padding: 2.5%;
 }
 
 /*C-player-details, mostly the image*/
-.c-player--details .details-img {
+.c-player--details .detail_img {
     position: relative;
     width: fit-content;
-    margin: 50px auto;
+    margin: auto;
 }
 
-.c-player--details .details-img img {
-    display: block;
-    margin: 0px auto;
-    width: 100%;
-    border-radius: 50px;
+.c-player--details .detail_img img {
+    display: flex;
+    margin: auto;
+    width: 97%;
+    flex-wrap: wrap;
 }
 
 /*Buttons*/
@@ -64,6 +84,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+    border-radius: 8px;
 }
 
 button {
@@ -76,8 +97,45 @@ button {
     padding: 16px;
     cursor: pointer;
     transition: 0.3s;
+    border-radius: 8px;
+    margin: 1%;
 }
 
 button:hover {
     opacity: 0.7;
+}
+
+.progress-bar--box {
+    height: 20;
+    width: 75%;
+    background-color: var(--secondary);
+    border-radius: 8px;
+    margin: auto;
+    margin-top: 10px;
+    margin-bottom: 10px;
+    padding-top: 0.5%;
+    padding-bottom: 0.5%;
+    font-size: 25px;
+}
+
+
+.progress-bar--container {
+    height: 25px;
+    width: 95%;
+    background-color: var(--tertiary);
+    border-radius: 8px;
+    margin: auto;
+    margin-top: 10px;
+    margin-bottom: 10px;
+    padding: auto;
+}
+
+.progress-bar--filler {
+    height: 100%;
+    width: 60%;
+    background-color: #ff0000;
+    border-radius: 8px;
+    text-align: right;
+    color: var(--light);
+    font-size: 20px;
 }
