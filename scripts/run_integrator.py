@@ -18,7 +18,8 @@ def main(args):
     # Load and run the integrator
     integrator = InfectedHDiffIntegrator(modules=module_cfgs, device=device, **cfg)
     track_length = args.min_time + random.random() * (args.max_time - args.min_time)
-    integrator(track_length=track_length)
+    for data in integrator(track_length=track_length):
+        print(data)
     
     # Save the track
     integrator.save_track(path=args.save_path)

@@ -27,7 +27,6 @@ class MusicDataModule(pl.LightningDataModule):
                  eval_split_factor: float=0.01,
                  previous_dataset=None, 
                  previous_vqvae=None,
-                 dataset_cfg: Dict={},
                  data_path: str='data/music_samples/',
                  **kwargs):
         
@@ -39,7 +38,7 @@ class MusicDataModule(pl.LightningDataModule):
         self.batch_size = batch_size
         self.eval_split_factor = eval_split_factor
         self.data_path = data_path
-        self.dataset_cfg = dataset_cfg
+        self.dataset_cfg = kwargs
         
         
     def setup(self, stage: str):

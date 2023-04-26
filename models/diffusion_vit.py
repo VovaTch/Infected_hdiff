@@ -9,6 +9,7 @@ from torchaudio.transforms import MelSpectrogram
 import matplotlib.pyplot as plt
 
 from .base import BaseNetwork
+from utils.other import SinusoidalPositionEmbeddings
 from utils.diffusion import DiffusionConstants, forward_diffusion_sample, get_index_from_list
 from loss import TotalLoss
 
@@ -30,22 +31,6 @@ def get_emb(sin_inp: torch.Tensor):
     """
     emb = torch.stack((sin_inp.sin(), sin_inp.cos()), dim=-1) 
     return torch.flatten(emb, -2, -1)
-
-
-class SinusoidalPositionEmbeddings(nn.Module):
-    def __init__(self, dim):
-        super().__init__()
-        self.dim = dim
-
-    def forward(self, time):
-        device = time.device
-        half_dim = self.dim // 2
-        embeddings = math.log(10000) / (half_dim - 1)
-        embeddings = torch.exp(torch.arange(half_dim, device=device) * -embeddings)
-        embeddings = time[:, None] * embeddings[None, :]
-        embeddings = torch.cat((embeddings.sin(), embeddings.cos()), dim=-1)
-        # TODO: Double check the ordering here
-        return embeddings
 
 
 class DiffusionViT(BaseNetwork):

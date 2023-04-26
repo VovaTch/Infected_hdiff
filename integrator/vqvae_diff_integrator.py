@@ -33,16 +33,31 @@ class InfectedHDiffIntegrator(Integrator):
         self.batch_length = batch_length
         self.latent_sizes = latent_sizes
         self.weight_paths = weight_paths
+        
+        self.track_length = None
 
 
     @torch.no_grad()
     def __call__(self, track_length: float = 300):
         
+        self.track_length = track_length
+        return self
+                    
+                    
+    def __iter__(self):
+        """
+        This iterator will be used to eventually generate data for the React demo app.
+        """
+        
+        assert self.track_length is not None, "Must input track length via the '__call__' method."
+        
         # Create the initial noise
         reduction_factor = np.prod(self.reduction_list)
-        number_of_sample_vectors = int(track_length * 44100 / (reduction_factor * self.latent_sizes[-1] * 8)) # This multiplication by 8 is a hack
+        number_of_sample_vectors = int(self.track_length * 44100 / (reduction_factor * self.latent_sizes[-1] * 8)) # This multiplication by 8 is a hack
         init_noise = torch.randn((1, self.latent_sizes[-1], number_of_sample_vectors)).to(self.device)
         running_data = init_noise
+        
+        module_idx = 0
         
         for module_name, module_cfg in self.module_cfgs.items():
             
@@ -57,6 +72,11 @@ class InfectedHDiffIntegrator(Integrator):
             dataloader = self._create_dataloader(running_data)
             result_collector = None
             
+            # Initial yield to produce the additional progress bar
+            running_data_idx = 0
+            yield [module_name, module_idx, running_data_idx / len(dataloader) * 100] 
+            # Module name, module index, percent completed
+            
             for data in tqdm.tqdm(dataloader, f'Running network {module_name}'):
                 
                 data = data[0].to(self.device)
@@ -64,16 +84,20 @@ class InfectedHDiffIntegrator(Integrator):
                     output = module.denoise(data) # TODO: Change it such that it can output running data into an outside script
                 else:
                     z_q_out = module.vq_module(data)['v_q']
-                    output = module.decoder(z_q_out)
+                    output = module.rec_decoder(z_q_out)
                     
                 if result_collector is None:
                     result_collector = output
                 else:
                     result_collector = torch.cat((result_collector, output), dim=0)
                     
+                running_data_idx += 1
+                yield [module_name, module_idx, running_data_idx / len(dataloader) * 100] 
+                    
             print(f'Network {module_name} has finished inference.')
             del module # Release the module from memory and make way for the next one
             running_data = result_collector
+            module_idx += 1
             
         self.track = result_collector.flatten()   
         return self.track      

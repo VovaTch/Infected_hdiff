@@ -2,6 +2,7 @@ model:
   name: denoiser_diffusion
   sample_rate: 44100
   slice_time: 0.7430386 # Length of slice to get 2048 samples
+  # slice_time: 0.01160997812
   in_dim: 1
   hidden_size: 512
   token_collect_size: 32
@@ -25,8 +26,8 @@ learning:
   scheduler_type: 'none'
   dataset_name: 'music_slice_dataset'
   eval_split_factor: 0.01
-  preload_data_file_path: 'data/music_samples/000-datatensor.pt'
-  preload_metadata_file_path: 'data/music_samples/000-metadata.pkl'
+  preload_data_file_path: 'data/music_samples/000-datatensor_short.pt'
+  preload_metadata_file_path: 'data/music_samples/000-metadata_short.pkl'
   
 
 

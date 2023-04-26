@@ -7,6 +7,7 @@ import torch.nn.functional as F
 from .vq_codebook import VQCodebook
 from .base import BaseNetwork
 from loss import TotalLoss
+from utils.other import SinusoidalPositionEmbeddings, getPositionEncoding
 
 class ConvDownsample(nn.Module):
     '''
@@ -76,7 +77,8 @@ class Encoder1D(nn.Module):
                  dim_change_list: List[int], 
                  input_channels: int=1, 
                  kernel_size: int=5, 
-                 dim_change_kernel_size: int=5):
+                 dim_change_kernel_size: int=5,
+                 mid_attention: bool=False):
         
         super().__init__()
         assert len(channel_list) == len(dim_change_list) + 1, "The channel list length must be greater than the dimension change list by 1"
@@ -92,6 +94,13 @@ class Encoder1D(nn.Module):
              for idx, dim_change_param in enumerate(dim_change_list)]
         )
         
+        self.mid_attention = mid_attention
+        if mid_attention:
+            patch_collection_size = 1
+            self.attn = AttentionModule(in_dim=self.last_dim, 
+                                        hidden_size=self.last_dim * patch_collection_size * 32, 
+                                        patch_collection_size=patch_collection_size)
+        
         
     def forward(self, x):
         
@@ -101,6 +110,9 @@ class Encoder1D(nn.Module):
             x = conv(x)
             x = dim_change(x)
             x = F.gelu(x)
+        
+        if self.mid_attention:
+            x = self.attn(x)
         
         return x
 
@@ -115,7 +127,8 @@ class Decoder1D(nn.Module):
                  sin_locations: List[int]=None,
                  kernel_size: int=5,
                  dim_add_kernel_add: int=12,
-                 bottleneck_kernel_size: int=31):
+                 bottleneck_kernel_size: int=31,
+                 mid_attention: bool=False):
         
         super().__init__()
         assert len(channel_list) == len(dim_change_list) + 1, "The channel list length must be greater than the dimension change list by 1"
@@ -145,9 +158,19 @@ class Decoder1D(nn.Module):
              for idx in range(len(dim_change_list))]
         )
         self.sin_locations = sin_locations
+        
+        self.mid_attention = mid_attention
+        if mid_attention:
+            patch_collection_size = 1
+            self.attn = AttentionModule(in_dim=channel_list[0], 
+                                        hidden_size=channel_list[0] * patch_collection_size * 64, 
+                                        patch_collection_size=patch_collection_size)
 
         
     def forward(self, z):
+        
+        if self.mid_attention:
+            z = self.attn(z)
         
         for idx, (conv, dim_change) in enumerate(zip(self.conv_list, self.dim_change_list)):
             z = conv(z)
@@ -156,7 +179,7 @@ class Decoder1D(nn.Module):
             # Trying to have a sinusoidal activation here for repetitive data
             if self.sin_locations is not None:
                 if idx + 1 in self.sin_locations:
-                    z += torch.sin(z.clone())
+                    z = torch.sin(z.clone())
             else:
                 z = F.gelu(z)
             
@@ -186,6 +209,111 @@ class VQ1D(nn.Module):
         return output
         
 
+class AttentionModule(nn.Module):
+    
+    def __init__(self, 
+                 in_dim: int,
+                 hidden_size: int, 
+                 patch_collection_size: int, 
+                 n_heads: int=4, 
+                 **kwargs):
+        
+        super().__init__()
+        self.hidden_size = hidden_size
+        self.patch_collection_size = patch_collection_size
+        self.n_heads = n_heads
+        self.in_dim = in_dim
+        
+        # Defining the transformer
+        assert hidden_size % n_heads == 0, 'The hidden size must be divisible by the number of heads.'
+        self.encoder_layer = nn.TransformerEncoderLayer(d_model=self.hidden_size, nhead=n_heads, dropout=0.0, norm_first=True)
+        self.encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=2)
+        self.positional_encoding = SinusoidalPositionEmbeddings(self.hidden_size)
+        
+        # Define the FC layers, one for in, one for out
+        self.fc_in = nn.Linear(in_dim * patch_collection_size, hidden_size)
+        self.fc_out = nn.Linear(hidden_size, in_dim * patch_collection_size)
+        
+        
+    def _patchify(self, x: torch.Tensor):
+        """
+        Apparently the view function doesn't produce the required result. As such, this function reshapes x in the required patch shape.
+        """
+        
+        # Create the reshaped tensor
+        x = self._right_pad_if_necessary(x.transpose(1, 2)).transpose(1, 2)
+        x_size = x.size() # BS x C x W, we want BS x C*bl x bl
+        x_required_size = [x_size[0], self.patch_collection_size * x_size[1], x_size[2] // self.patch_collection_size]
+        x_reshaped = torch.zeros(x_required_size).to(x.device)
+        
+        # Fit the data into the required shape
+        for block_idx in range(x_required_size[2]):
+            # data_slice = x[:, :, block_idx::x_required_size[2]]
+            data_slice = x[:, :, block_idx * self.patch_collection_size: (block_idx + 1) * self.patch_collection_size]
+            x_reshaped[:, :, block_idx] = data_slice.transpose(1, 2).flatten(start_dim=1)
+            
+        # Return the reshaped tensor
+        return x_reshaped.transpose(1, 2) # BS x bl x C * W / bl
+    
+    
+    def _right_pad_if_necessary(self, x: torch.Tensor):
+        """
+        Assume x's dimensions are BS x W x C
+        """
+        
+        x_width = x.shape[1]
+        if x_width % (self.in_dim * self.patch_collection_size) != 0:
+            num_missing_values = (self.in_dim * self.patch_collection_size)\
+                - x_width % (self.in_dim * self.patch_collection_size)
+            last_dim_padding = (0, 0, 0, num_missing_values)
+            x = F.pad(x, last_dim_padding)
+        return x
+    
+    
+    def _depatchify(self, x_reshaped: torch.Tensor):
+        """
+        After patching, this function reverses the patching process in _patchify. Assumes x_reshaped is BS x C * W / bl x bl
+        """
+        
+        # Create the origin tensor shape
+        x_reshaped = x_reshaped.transpose(1, 2)
+        x_reshaped_size = x_reshaped.size() # BS x C * W / bl x bl
+        x_required_size = [x_reshaped_size[0], 
+                           x_reshaped_size[1] // self.patch_collection_size, 
+                           x_reshaped_size[2] * self.patch_collection_size]
+        x = torch.zeros(x_required_size).to(x_reshaped.device)
+        
+        # Fit the data into the required shape
+        for block_idx in range(x_reshaped_size[2]):
+            data_slice = x_reshaped[:, :, block_idx]
+            intermediate_block = data_slice.view((x_required_size[0], self.patch_collection_size, x_required_size[1]))
+            x[:, :, block_idx * self.patch_collection_size: (block_idx + 1) * self.patch_collection_size] =\
+                intermediate_block.transpose(1, 2)
+            # x[:, :, block_idx::x_reshaped_size[2]] =\
+            #     intermediate_block.transpose(1, 2)
+                
+        # Return the tensor with the original shape
+        return x
+
+
+    def forward(self, x: torch.Tensor):
+        
+        x = self._patchify(x)
+        x = self.fc_in(x)
+        
+        # Positional embedding
+        pos_emb_range = torch.arange(0, x.shape[1]).to(x.device)
+        pos_emb_mat = self.positional_encoding(pos_emb_range)
+        pos_emb_in = pos_emb_mat.unsqueeze(0).repeat((x.shape[0], 1, 1))
+        # x += pos_emb_in
+        
+        # Transformer
+        x = self.encoder(x)
+        x = self.fc_out(x)
+        x = self._depatchify(x)
+        
+        return x
+
 
 class MultiLvlVQVariationalAutoEncoder(BaseNetwork):
     """
@@ -203,11 +331,15 @@ class MultiLvlVQVariationalAutoEncoder(BaseNetwork):
                  bottleneck_kernel_size: int=31,
                  input_channels: int=1,
                  sin_locations: List[int] = None,
+                 attention_location: List[int] = None,
                  channel_dim_change_list: List[int] = [2, 2, 2, 4, 4],
                  encoder_kernel_size: int=5,
                  encoder_dim_change_kernel_size: int=5,
                  decoder_kernel_size: int=7,
                  decoder_dim_change_kernel_add: int=12,
+                 mid_attention: bool=True,
+                 train_rec_decoder: bool=True,
+                 train_mel_decoder: bool=True,
                  **kwargs):
         
         super().__init__(**kwargs)
@@ -222,11 +354,17 @@ class MultiLvlVQVariationalAutoEncoder(BaseNetwork):
         self.latent_depth = latent_depth
         self.vocabulary_size = vocabulary_size
         self.channel_dim_change_list = channel_dim_change_list
+        self.mid_attention = mid_attention
+        
+        # Parse training flags
+        self.train_rec = train_rec_decoder
+        self.train_mel = train_mel_decoder
         
         # Encoder parameter initialization
         encoder_channel_list = [hidden_size * (2 ** (idx + 1)) for idx in range(len(channel_dim_change_list))] + [latent_depth]
         encoder_dim_changes = channel_dim_change_list
-        decoder_channel_list = list(reversed(encoder_channel_list))
+        decoder_channel_list = [latent_depth] + [hidden_size * (2 ** (idx + 1))\
+            for idx in reversed(range(len(channel_dim_change_list)))]
         decoder_dim_changes = list(reversed(channel_dim_change_list))
         
         # Initialize network parts
@@ -234,22 +372,49 @@ class MultiLvlVQVariationalAutoEncoder(BaseNetwork):
         self.encoder = Encoder1D(encoder_channel_list, encoder_dim_changes, 
                                  input_channels=input_channels, 
                                  kernel_size=encoder_kernel_size, 
-                                 dim_change_kernel_size=encoder_dim_change_kernel_size)
-        self.decoder = Decoder1D(decoder_channel_list, decoder_dim_changes, sin_locations=sin_locations, 
-                                   bottleneck_kernel_size=bottleneck_kernel_size, input_channels=input_channels,
-                                   kernel_size=decoder_kernel_size,
-                                   dim_add_kernel_add=decoder_dim_change_kernel_add)
+                                 dim_change_kernel_size=encoder_dim_change_kernel_size,
+                                 mid_attention=self.mid_attention)
+        self.rec_decoder = Decoder1D(decoder_channel_list, decoder_dim_changes, sin_locations=sin_locations, 
+                                     bottleneck_kernel_size=bottleneck_kernel_size, input_channels=input_channels,
+                                     kernel_size=decoder_kernel_size,
+                                     dim_add_kernel_add=decoder_dim_change_kernel_add,
+                                     mid_attention=self.mid_attention).requires_grad_(train_rec_decoder)
+        self.mel_decoder = Decoder1D(decoder_channel_list, decoder_dim_changes, sin_locations=sin_locations, 
+                                     bottleneck_kernel_size=bottleneck_kernel_size, input_channels=input_channels,
+                                     kernel_size=decoder_kernel_size,
+                                     dim_add_kernel_add=decoder_dim_change_kernel_add,
+                                     mid_attention=self.mid_attention).requires_grad_(train_mel_decoder)
+        
         self.vq_module = VQ1D(latent_depth, num_tokens=vocabulary_size)
         
         
     def forward(self, x: torch.Tensor):
         
         origin_shape = x.shape
+        
         x_reshaped = x.reshape((x.shape[0], -1, self.input_channels)).permute((0, 2, 1))
         
-        z_e = self.encoder(x_reshaped)
-        vq_block_output = self.vq_module(z_e, extract_losses=True)
-        x_out = self.decoder(vq_block_output['v_q'])
+        if self.train_rec:
+            z_e = self.encoder(x_reshaped)
+            vq_block_output = self.vq_module(z_e, extract_losses=True)
+        else:
+            with torch.no_grad():
+                z_e = self.encoder(x_reshaped)
+                vq_block_output = self.vq_module(z_e, extract_losses=True)
+        
+        if self.train_rec:
+            x_out_rec = self.rec_decoder(vq_block_output['v_q'])
+        else:
+            with torch.no_grad():
+                x_out_rec = self.rec_decoder(vq_block_output['v_q'])
+        
+        if self.train_mel:
+            x_out_mel = self.mel_decoder(vq_block_output['v_q'])
+        else:
+            with torch.no_grad():
+                x_out_mel = self.mel_decoder(vq_block_output['v_q'])
+        
+        x_out = x_out_rec * 0.5 + x_out_mel * 0.1
         
         total_output = {**vq_block_output,
                         'output': x_out.permute((0, 2, 1)).reshape(origin_shape)}
