@@ -40,6 +40,12 @@ class SinActivation(nn.Module):
         return torch.sin(x)
 
 
+class ClearModule(nn.Module):
+    
+    def __init__(self):
+        super().__init__()
+
+
 class ConvBlock1D(nn.Module):
     """
     Double conv block, I leave the change in dimensions to the encoder and decoder classes.
@@ -78,7 +84,8 @@ class Encoder1D(nn.Module):
                  input_channels: int=1, 
                  kernel_size: int=5, 
                  dim_change_kernel_size: int=5,
-                 mid_attention: bool=False):
+                 mid_attention: bool=False,
+                 attention_location: List[int]=[]):
         
         super().__init__()
         assert len(channel_list) == len(dim_change_list) + 1, "The channel list length must be greater than the dimension change list by 1"
@@ -100,16 +107,25 @@ class Encoder1D(nn.Module):
             self.attn = AttentionModule(in_dim=self.last_dim, 
                                         hidden_size=self.last_dim * patch_collection_size * 32, 
                                         patch_collection_size=patch_collection_size)
+            
+        self.attn_encoder = nn.ModuleDict({})
+        for loc in attention_location:
+            self.attn_encoder[str(loc)] = AttentionModule(in_dim=channel_list[loc + 1],
+                                                     hidden_size=512,
+                                                     patch_collection_size=16)
         
         
     def forward(self, x):
         
         x = self.init_conv(x)
         
-        for conv, dim_change in zip(self.conv_list, self.dim_change_list):
+        for idx, (conv, dim_change) in enumerate(zip(self.conv_list, self.dim_change_list)):
             x = conv(x)
             x = dim_change(x)
             x = F.gelu(x)
+        
+            if str(idx) in self.attn_encoder:
+                x = self.attn_encoder[str(idx)](x)
         
         if self.mid_attention:
             x = self.attn(x)
@@ -128,7 +144,8 @@ class Decoder1D(nn.Module):
                  kernel_size: int=5,
                  dim_add_kernel_add: int=12,
                  bottleneck_kernel_size: int=31,
-                 mid_attention: bool=False):
+                 mid_attention: bool=False,
+                 attention_location: List[int]=[]):
         
         super().__init__()
         assert len(channel_list) == len(dim_change_list) + 1, "The channel list length must be greater than the dimension change list by 1"
@@ -165,6 +182,12 @@ class Decoder1D(nn.Module):
             self.attn = AttentionModule(in_dim=channel_list[0], 
                                         hidden_size=channel_list[0] * patch_collection_size * 64, 
                                         patch_collection_size=patch_collection_size)
+            
+        self.attn_decoder = nn.ModuleDict({})
+        for loc in attention_location:
+            self.attn_decoder[str(loc)] = AttentionModule(in_dim=channel_list[loc + 1],
+                                                     hidden_size=512,
+                                                     patch_collection_size=16)
 
         
     def forward(self, z):
@@ -182,6 +205,9 @@ class Decoder1D(nn.Module):
                     z = torch.sin(z.clone())
             else:
                 z = F.gelu(z)
+                
+            if str(idx) in self.attn_decoder:
+                z = self.attn_decoder[str(idx)](z)
             
         x_out = self.end_conv(z)
             
@@ -368,22 +394,26 @@ class MultiLvlVQVariationalAutoEncoder(BaseNetwork):
         decoder_dim_changes = list(reversed(channel_dim_change_list))
         
         # Initialize network parts
+        rev_attention_location = [len(channel_dim_change_list) - element for element in attention_location]
         self.input_channels = input_channels
         self.encoder = Encoder1D(encoder_channel_list, encoder_dim_changes, 
                                  input_channels=input_channels, 
                                  kernel_size=encoder_kernel_size, 
                                  dim_change_kernel_size=encoder_dim_change_kernel_size,
-                                 mid_attention=self.mid_attention)
+                                 mid_attention=self.mid_attention,
+                                 attention_location=attention_location)
         self.rec_decoder = Decoder1D(decoder_channel_list, decoder_dim_changes, sin_locations=sin_locations, 
                                      bottleneck_kernel_size=bottleneck_kernel_size, input_channels=input_channels,
                                      kernel_size=decoder_kernel_size,
                                      dim_add_kernel_add=decoder_dim_change_kernel_add,
-                                     mid_attention=self.mid_attention).requires_grad_(train_rec_decoder)
+                                     mid_attention=self.mid_attention,
+                                     attention_location=rev_attention_location).requires_grad_(train_rec_decoder)
         self.mel_decoder = Decoder1D(decoder_channel_list, decoder_dim_changes, sin_locations=sin_locations, 
                                      bottleneck_kernel_size=bottleneck_kernel_size, input_channels=input_channels,
                                      kernel_size=decoder_kernel_size,
                                      dim_add_kernel_add=decoder_dim_change_kernel_add,
-                                     mid_attention=self.mid_attention).requires_grad_(train_mel_decoder)
+                                     mid_attention=self.mid_attention,
+                                     attention_location=rev_attention_location).requires_grad_(train_mel_decoder)
         
         self.vq_module = VQ1D(latent_depth, num_tokens=vocabulary_size)
         
