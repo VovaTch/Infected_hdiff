@@ -444,7 +444,7 @@ class MultiLvlVQVariationalAutoEncoder(BaseNetwork):
             with torch.no_grad():
                 x_out_mel = self.mel_decoder(vq_block_output['v_q'])
         
-        x_out = x_out_rec * 0.5 + x_out_mel * 0.1
+        x_out = x_out_rec + x_out_mel
         
         total_output = {**vq_block_output,
                         'output': x_out.permute((0, 2, 1)).reshape(origin_shape)}

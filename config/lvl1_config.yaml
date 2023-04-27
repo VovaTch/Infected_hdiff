@@ -2,7 +2,11 @@ model:
   name: vqvae_lvl_1
   sample_rate: 44100
   slice_time: 0.7430386 # Length of slice to get 2^15 samples
+<<<<<<< Updated upstream
   hidden_size: 8
+=======
+  hidden_size: 12
+>>>>>>> Stashed changes
   latent_width: 128
   latent_depth: 8
   vocabulary_size: 8192
@@ -51,20 +55,20 @@ loss:
     weight: 0.5
     base_loss_type: 'l2_loss'
 
-  # melspec_loss_1:
-  #   weight: 1.0
-  #   base_loss_type: 'l2_loss'
-  #   lin_start: 1.00
-  #   lin_end: 1.0
+  melspec_loss_1:
+    weight: 1.0
+    base_loss_type: 'l2_loss'
+    lin_start: 1.00
+    lin_end: 1.0
     
-  #   melspec_params:
-  #     n_fft: 2048
-  #     hop_length: 512
-  #     n_mels: 128
-  #     pad_mode: reflect
-  #     power: 2.0
-  #     norm: "slaney"
-  #     mel_scale: "htk"
+    melspec_params:
+      n_fft: 2048
+      hop_length: 512
+      n_mels: 128
+      pad_mode: reflect
+      power: 2.0
+      norm: "slaney"
+      mel_scale: "htk"
 
   # melspec_loss_2:
   #   weight: 1.0
