@@ -2,6 +2,7 @@ import argparse
 import sys
 
 from models.multi_level_vqvae import MultiLvlVQVariationalAutoEncoder
+from models.transformer_vqvae import TransformerVQVAE
 from models.unet_denoiser import WaveUNet_Denoiser
 from models.diffusion_vit import DiffusionViT
 from utils.other import load_cfg_dict, initialize_trainer
@@ -31,6 +32,39 @@ def train_encoder(args, level: int=1):
         model = MultiLvlVQVariationalAutoEncoder(**cfg, loss_obj=loss)
     else:
         model = MultiLvlVQVariationalAutoEncoder.load_from_checkpoint(args.resume, **cfg, loss_obj=loss)
+        
+    # Initialize trainer
+    trainer = initialize_trainer(cfg, num_devices=args.num_devices)
+    
+    # Start training
+    trainer.fit(model, datamodule=data_module)
+    
+    # If running on Colab
+    if IN_COLAB:
+        print('Saving checkpoint in Google Drive:')
+        save_path = f'/content/drive/MyDrive/net_weights/IHDF/lvl{level}_vqvae.ckpt'
+        trainer.save_checkpoint(save_path, weights_only=True)
+        print(f'Saved network weights in {save_path}.')
+        
+        
+def train_trans_encoder(args, level: int=1):
+    
+    if IN_COLAB:
+        print('Running on Google Colab.')
+        
+    # Load model with loss
+    config_path_selection = {1: 'config/lvl1_trans_config.yaml',
+                             2: 'config/lvl2_trans_config.yaml',
+                             3: 'config/lvl3_trans_config.yaml',
+                             4: 'config/lvl4_trans_config.yaml'}
+    config_path = config_path_selection[level] if args.config is None else args.config
+    cfg = load_cfg_dict(config_path)
+    loss = TotalLoss(cfg['loss'])
+    data_module = MusicDataModule(**cfg, latent_level=level)
+    if args.resume is None:
+        model = TransformerVQVAE(**cfg, loss_obj=loss)
+    else:
+        model = TransformerVQVAE.load_from_checkpoint(args.resume, **cfg, loss_obj=loss)
         
     # Initialize trainer
     trainer = initialize_trainer(cfg, num_devices=args.num_devices)
@@ -145,6 +179,9 @@ def main(args):
         
     elif choice == 'denoiser_diff':
         train_diff(args, level=0)
+        
+    elif choice == 'lvl1tvqvae':
+        train_trans_encoder(args, level=1)
     
     else:
         raise ValueError(f'The algorithm type {choice} does not exist')
@@ -161,6 +198,7 @@ if __name__ == '__main__':
                                                                 'lvl2diff',
                                                                 'lvl3diff',
                                                                 'lvl4diff',
+                                                                'lvl1tvqvae',
                                                                 'denoiser', 
                                                                 'denoiser_diff'],
                         help='The type of algorithm to train')
