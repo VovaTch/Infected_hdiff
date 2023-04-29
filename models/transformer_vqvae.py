@@ -208,12 +208,14 @@ class TransformerVQVAE(BaseNetwork):
         # Initiate encoder and decoder
         self.encoder = TransEncoder(encoder_dim_changes, 
                                     input_channels=input_channels,
+                                    output_channels=latent_depth,
                                     hidden_size=hidden_size,
                                     patch_collection_size=patch_collection_size,
                                     n_heads=n_heads,
                                     n_trans=num_transformer_layers_per_stage)
         self.decoder = TransDecoder(decoder_dim_changes,
                                     input_channels=input_channels,
+                                    output_channels=latent_depth,
                                     hidden_size=hidden_size,
                                     patch_collection_size=patch_collection_size,
                                     n_heads=n_heads,

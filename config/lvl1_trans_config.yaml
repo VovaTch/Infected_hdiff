@@ -1,22 +1,20 @@
 model:
-  name: vqvae_lvl_1
+  name: tvqvae_lvl_1
   sample_rate: 44100
   slice_time: 0.7430386 # Length of slice to get 2^15 samples
   hidden_size: 256
   latent_width: 128
-  latent_depth: 8
+  latent_depth: 16
   vocabulary_size: 8192
   num_transformer_layers_per_stage: 2
-  channel_dim_change_list: [2, 2, 2, 2, 2, 2]
-  sin_locations: []
-  attention_location: [2]
+  channel_dim_change_list: [2, 2, 2, 2, 2, 2, 2]
   amp: False
   input_channels: 1
   patch_collection_size: 32
   n_heads: 8
 
 learning:
-  batch_size: 4
+  batch_size: 16
   learning_rate: 0.0001
   weight_decay: 0.0
   epochs: 4000
