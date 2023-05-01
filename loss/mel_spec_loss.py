@@ -43,5 +43,5 @@ class MelSpecLoss(LossBase):
         lin_vector = torch.linspace(self.lin_start, self.lin_end, self.loss_cfg['melspec_params']['n_mels'])
         eye_mat = torch.diag(lin_vector).to(x.device)
         mel_out = self.mel_spec(x.flatten(start_dim=0, end_dim=1))
-        mel_out = torch.log(eye_mat @ mel_out + 1e-5)
+        mel_out = torch.tanh(eye_mat @ mel_out)
         return mel_out

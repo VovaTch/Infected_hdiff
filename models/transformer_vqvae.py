@@ -45,6 +45,14 @@ def _right_pad_if_necessary(x: torch.Tensor, patch_collection_size: int):
     return x_in
 
 
+def _apply_pos_encoding(x: torch.Tensor, pos_encoding: SinusoidalPositionEmbeddings):
+    
+    pos_range = torch.arange(0, x.shape[1], 1).to(x.device)
+    pos_enc_ind = pos_encoding(pos_range)
+    pos_enc = pos_enc_ind.unsqueeze(0).repeat((x.shape[0], 1, 1))
+    return x + pos_enc
+
+
 class TransEncoder(nn.Module):
 
     def __init__(self, 
@@ -60,6 +68,7 @@ class TransEncoder(nn.Module):
         
         self.dim_changes_list = dim_changes_list
         self.patch_collection_size = patch_collection_size
+        self.positional_encoding = SinusoidalPositionEmbeddings(dim=hidden_size)
         
         # Transformer layer
         trans_layer = nn.TransformerEncoderLayer(d_model=hidden_size, dropout=0.0, nhead=n_heads, norm_first=True)
@@ -85,6 +94,7 @@ class TransEncoder(nn.Module):
         for (trans_module, fc_module, dim_change) in zip(self.attn_stack, self.fc_stack[:-1], self.dim_changes_list):
             x = fc_module(x)
             x = F.gelu(x)
+            x = _apply_pos_encoding(x, self.positional_encoding)
             x = trans_module(x)
             x = _patchify(x, dim_change)
             
@@ -109,6 +119,7 @@ class TransDecoder(nn.Module):
         
         self.dim_changes_list = dim_changes_list
         self.patch_collection_size = patch_collection_size
+        self.positional_encoding = SinusoidalPositionEmbeddings(dim=hidden_size)
         
         # Transformer layer
         trans_layer = nn.TransformerEncoderLayer(d_model=hidden_size, dropout=0.0, nhead=n_heads, norm_first=True)
@@ -133,6 +144,7 @@ class TransDecoder(nn.Module):
         for (trans_module, fc_module, dim_change) in zip(self.attn_stack, self.fc_stack[:-1], self.dim_changes_list):
             x = fc_module(x)
             x = F.gelu(x)
+            x = _apply_pos_encoding(x, self.positional_encoding)
             x = trans_module(x)
             x = _depatchify(x, dim_change)
             
