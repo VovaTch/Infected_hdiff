@@ -3,11 +3,13 @@ from typing import List
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import numpy as np
 
 from .vq_codebook import VQCodebook
 from .base import BaseNetwork
 from loss import TotalLoss
 from utils.other import SinusoidalPositionEmbeddings
+
 
 
 def _patchify(x: torch.Tensor, patch_collection_size: int):

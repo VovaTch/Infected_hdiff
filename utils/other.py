@@ -10,6 +10,16 @@ from pytorch_lightning.loggers import TensorBoardLogger
 
 from .ema import EMA
 
+
+class SinActivation(nn.Module):
+    
+    def __init__(self):
+        super().__init__()
+    
+    def forward(self, x):
+        return torch.sin(x)
+
+
 def load_cfg_dict(config_path):
     
     with open(config_path, 'r') as f:
@@ -82,3 +92,11 @@ def getPositionEncoding(seq_len: int, d: int, n: int=10000):
             P[k, 2 * i] = torch.sin(k / denominator)
             P[k, 2 * i + 1] = torch.cos(k / denominator)
     return P
+
+
+ACTIVATIONS = {'gelu': nn.GELU,
+               'sin': SinActivation,
+               'relu': nn.ReLU,
+               'tanh': nn.Tanh,
+               'sigmoid': nn.Sigmoid}
+

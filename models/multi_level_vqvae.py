@@ -9,6 +9,7 @@ from .base import BaseNetwork
 from loss import TotalLoss
 from utils.other import SinusoidalPositionEmbeddings, getPositionEncoding
 
+
 class ConvDownsample(nn.Module):
     '''
     A small module handling downsampling via a convolutional layer instead of e.g. Maxpool.
@@ -315,8 +316,6 @@ class AttentionModule(nn.Module):
             intermediate_block = data_slice.view((x_required_size[0], self.patch_collection_size, x_required_size[1]))
             x[:, :, block_idx * self.patch_collection_size: (block_idx + 1) * self.patch_collection_size] =\
                 intermediate_block.transpose(1, 2)
-            # x[:, :, block_idx::x_reshaped_size[2]] =\
-            #     intermediate_block.transpose(1, 2)
                 
         # Return the tensor with the original shape
         return x
@@ -363,9 +362,6 @@ class MultiLvlVQVariationalAutoEncoder(BaseNetwork):
                  encoder_dim_change_kernel_size: int=5,
                  decoder_kernel_size: int=7,
                  decoder_dim_change_kernel_add: int=12,
-                 mid_attention: bool=True,
-                 train_rec_decoder: bool=True,
-                 train_mel_decoder: bool=True,
                  **kwargs):
         
         super().__init__(**kwargs)
@@ -380,11 +376,6 @@ class MultiLvlVQVariationalAutoEncoder(BaseNetwork):
         self.latent_depth = latent_depth
         self.vocabulary_size = vocabulary_size
         self.channel_dim_change_list = channel_dim_change_list
-        self.mid_attention = mid_attention
-        
-        # Parse training flags
-        self.train_rec = train_rec_decoder
-        self.train_mel = train_mel_decoder
         
         # Encoder parameter initialization
         encoder_channel_list = [hidden_size * (2 ** (idx + 1)) for idx in range(len(channel_dim_change_list))] + [latent_depth]
@@ -400,20 +391,12 @@ class MultiLvlVQVariationalAutoEncoder(BaseNetwork):
                                  input_channels=input_channels, 
                                  kernel_size=encoder_kernel_size, 
                                  dim_change_kernel_size=encoder_dim_change_kernel_size,
-                                 mid_attention=self.mid_attention,
                                  attention_location=attention_location)
-        self.rec_decoder = Decoder1D(decoder_channel_list, decoder_dim_changes, sin_locations=sin_locations, 
+        self.decoder = Decoder1D(decoder_channel_list, decoder_dim_changes, sin_locations=sin_locations, 
                                      bottleneck_kernel_size=bottleneck_kernel_size, input_channels=input_channels,
                                      kernel_size=decoder_kernel_size,
                                      dim_add_kernel_add=decoder_dim_change_kernel_add,
-                                     mid_attention=self.mid_attention,
-                                     attention_location=rev_attention_location).requires_grad_(train_rec_decoder)
-        self.mel_decoder = Decoder1D(decoder_channel_list, decoder_dim_changes, sin_locations=sin_locations, 
-                                     bottleneck_kernel_size=bottleneck_kernel_size, input_channels=input_channels,
-                                     kernel_size=decoder_kernel_size,
-                                     dim_add_kernel_add=decoder_dim_change_kernel_add,
-                                     mid_attention=self.mid_attention,
-                                     attention_location=rev_attention_location).requires_grad_(train_mel_decoder)
+                                     attention_location=rev_attention_location)
         
         self.vq_module = VQ1D(latent_depth, num_tokens=vocabulary_size)
         
@@ -423,28 +406,10 @@ class MultiLvlVQVariationalAutoEncoder(BaseNetwork):
         origin_shape = x.shape
         
         x_reshaped = x.reshape((x.shape[0], -1, self.input_channels)).permute((0, 2, 1))
-        
-        if self.train_rec:
-            z_e = self.encoder(x_reshaped)
-            vq_block_output = self.vq_module(z_e, extract_losses=True)
-        else:
-            with torch.no_grad():
-                z_e = self.encoder(x_reshaped)
-                vq_block_output = self.vq_module(z_e, extract_losses=True)
-        
-        if self.train_rec:
-            x_out_rec = self.rec_decoder(vq_block_output['v_q'])
-        else:
-            with torch.no_grad():
-                x_out_rec = self.rec_decoder(vq_block_output['v_q'])
-        
-        if self.train_mel:
-            x_out_mel = self.mel_decoder(vq_block_output['v_q'])
-        else:
-            with torch.no_grad():
-                x_out_mel = self.mel_decoder(vq_block_output['v_q'])
-        
-        x_out = x_out_rec + x_out_mel
+    
+        z_e = self.encoder(x_reshaped)
+        vq_block_output = self.vq_module(z_e, extract_losses=True)
+        x_out = self.decoder(vq_block_output['v_q'])
         
         total_output = {**vq_block_output,
                         'output': x_out.permute((0, 2, 1)).reshape(origin_shape)}

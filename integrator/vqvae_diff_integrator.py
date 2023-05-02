@@ -84,7 +84,7 @@ class InfectedHDiffIntegrator(Integrator):
                     output = module.denoise(data) # TODO: Change it such that it can output running data into an outside script
                 else:
                     z_q_out = module.vq_module(data)['v_q']
-                    output = module.rec_decoder(z_q_out)
+                    output = module.decoder(z_q_out)
                     
                 if result_collector is None:
                     result_collector = output
