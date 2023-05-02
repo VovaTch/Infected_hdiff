@@ -21,7 +21,7 @@ model:
 
 learning:
   batch_size: 4
-  learning_rate: 0.0005
+  learning_rate: 0.0002
   weight_decay: 0.0
   epochs: 4000
   gradient_clip: 0.5

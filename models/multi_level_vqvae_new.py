@@ -63,6 +63,43 @@ class Res1DBlock(nn.Module):
         return x + x_init
     
     
+class Res1DBlockReverse(Res1DBlock):
+    
+    def __init__(self, 
+                 num_channels: int, 
+                 num_res_conv: int, 
+                 dilation_factor: int,
+                 kernel_size: int, 
+                 activation_type: str = 'gelu'):
+        
+        super().__init__(num_channels, num_res_conv, dilation_factor, kernel_size, activation_type)
+        
+        # Create conv, activation, norm blocks
+        self.res_block_modules = nn.ModuleList([])
+        for idx in range(num_res_conv):
+            
+            # Keep output dimension equal to input dim
+            dilation = dilation_factor ** (num_res_conv - idx - 1)
+            padding = (kernel_size + (kernel_size - 1) * (dilation - 1) - 1) // 2
+            
+            if idx != num_res_conv - 1:
+                
+                self.res_block_modules.append(nn.Sequential(
+                    nn.Conv1d(num_channels, num_channels, kernel_size=kernel_size, dilation=dilation, 
+                              padding=padding),
+                    self.activation(),
+                    nn.BatchNorm1d(num_channels),
+                ))
+                
+            else:
+                
+                self.res_block_modules.append(nn.Sequential(
+                    nn.Conv1d(num_channels, num_channels, kernel_size=kernel_size, dilation=dilation, 
+                              padding=padding),
+                    self.activation(),
+                ))
+    
+    
 class ConvDownsample(nn.Module):
     '''
     A small module handling downsampling via a convolutional layer instead of e.g. Maxpool.
@@ -158,7 +195,7 @@ class Decoder1D(nn.Module):
         # Create the module lists for the architecture
         self.end_conv = nn.Conv1d(channel_list[-1], input_channels, kernel_size=3, padding=1)
         self.conv_list = nn.ModuleList(
-            [Res1DBlock(channel_list[idx], num_res_block_conv, dilation_factor, kernel_size, activation_type) 
+            [Res1DBlockReverse(channel_list[idx], num_res_block_conv, dilation_factor, kernel_size, activation_type) 
              for idx in range(len(dim_change_list))]
         )
         assert dim_add_kernel_add % 2 == 0, 'dim_add_kernel_size must be an even number.'
