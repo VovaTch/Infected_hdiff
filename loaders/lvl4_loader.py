@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from models.multi_level_vqvae import MultiLvlVQVariationalAutoEncoder
 
 
-SLICE_LENGTH = 32768 # TODO: make it not hardcoded
+SLICE_LENGTH = 4096 # TODO: make it not hardcoded
 
 
 class Lvl4InputDataset(Dataset):

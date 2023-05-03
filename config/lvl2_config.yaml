@@ -1,42 +1,45 @@
 model:
   name: vqvae_lvl_2
   sample_rate: 44100
-  slice_length: 0.7430386 # Length of slice to get 2^15 samples
+  slice_time: 0.7430386 # Length of slice to get 2^15 samples
   hidden_size: 64
   latent_width: 128
   latent_depth: 8
   vocabulary_size: 8192
   bottleneck_kernel_size: 0
   channel_dim_change_list: [2, 2, 2]
-  sin_locations: []
   amp: False
   input_channels: 8
+  dilation_factor: 3
+  num_res_block_conv: 5
+  activation_type: 'gelu'
 
-  encoder_kernel_size: 5
-  encoder_dim_change_kernel_size: 5
-  decoder_kernel_size: 7
-  decoder_dim_change_kernel_add: 12
+  encoder_kernel_size: 3
+  encoder_dim_change_kernel_size: 3
+  decoder_kernel_size: 3
+  decoder_dim_change_kernel_add: 0
 
 learning:
-  batch_size: 8
-  learning_rate: 0.0005
+  batch_size: 4
+  learning_rate: 0.0002
   weight_decay: 0.0
-  epochs: 500
+  epochs: 4000
   gradient_clip: 0.5
   beta_ema: 0.9999
-  eval_split_factor: 0.01
   monitored_loss: Validation total loss
   dataset_path: data/music_samples/
   scheduler_type: 'none'
   dataset_name: 'lvl2_dataset'
   eval_split_factor: 0.01
+  preload_data_file_path: 'data/music_samples/001-datatensor.pt'
+  preload_metadata_file_path: 'data/music_samples/001-metadata.pkl'
 
 
 loss:
 
   reconstruction_loss:
     weight: 1.0
-    base_loss_type: 'huber_loss'
+    base_loss_type: 'l2_loss'
     phase_parameter: 1
 
   alignment_loss:
