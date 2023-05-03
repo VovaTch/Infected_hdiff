@@ -1,7 +1,7 @@
 import argparse
 import sys
 
-from models.multi_level_vqvae_new import MultiLvlVQVariationalAutoEncoder
+from models.multi_level_vqvae import MultiLvlVQVariationalAutoEncoder
 from models.transformer_vqvae import TransformerVQVAE
 from models.unet_denoiser import WaveUNet_Denoiser
 from models.diffusion_vit import DiffusionViT
@@ -20,7 +20,7 @@ def train_encoder(args, level: int=1):
         print('Running on Google Colab.')
         
     # Load model with loss
-    config_path_selection = {1: 'config/lvl1_config_new.yaml',
+    config_path_selection = {1: 'config/lvl1_config.yaml',
                              2: 'config/lvl2_config.yaml',
                              3: 'config/lvl3_config.yaml',
                              4: 'config/lvl4_config.yaml'}

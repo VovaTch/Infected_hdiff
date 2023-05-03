@@ -2,28 +2,26 @@ model:
   name: vqvae_lvl_1
   sample_rate: 44100
   slice_time: 0.7430386 # Length of slice to get 2^15 samples
-  hidden_size: 8
+  hidden_size: 16
   latent_width: 128
   latent_depth: 8
   vocabulary_size: 8192
   bottleneck_kernel_size: 0
   channel_dim_change_list: [2, 2, 2, 2, 2, 2]
-  sin_locations: []
-  attention_location: [2]
   amp: False
   input_channels: 1
-  mid_attention: False
-  train_rec_decoder: True
-  train_mel_decoder: False
+  dilation_factor: 3
+  num_res_block_conv: 5
+  activation_type: 'gelu'
 
   encoder_kernel_size: 3
   encoder_dim_change_kernel_size: 3
   decoder_kernel_size: 3
-  decoder_dim_change_kernel_add: 30
+  decoder_dim_change_kernel_add: 0
 
 learning:
   batch_size: 4
-  learning_rate: 0.0005
+  learning_rate: 0.0002
   weight_decay: 0.0
   epochs: 4000
   gradient_clip: 0.5
@@ -51,48 +49,92 @@ loss:
     weight: 0.5
     base_loss_type: 'l2_loss'
 
-  # melspec_loss_1:
-  #   weight: 1.0
-  #   base_loss_type: 'l2_loss'
-  #   lin_start: 1.00
-  #   lin_end: 1.0
+  melspec_loss_1:
+    weight: 1.0
+    base_loss_type: 'l2_loss'
+    lin_start: 1.00
+    lin_end: 1.0
     
-  #   melspec_params:
-  #     n_fft: 2048
-  #     hop_length: 512
-  #     n_mels: 128
-  #     pad_mode: reflect
-  #     power: 2.0
-  #     norm: "slaney"
-  #     mel_scale: "htk"
+    melspec_params:
+      n_fft: 2048
+      hop_length: 256
+      n_mels: 128
+      pad_mode: reflect
+      power: 2.0
+      norm: "slaney"
+      mel_scale: "htk"
 
-  # # melspec_loss_2:
-  #   weight: 1.0
-  #   base_loss_type: 'l2_loss'
-  #   lin_start: 0.5
-  #   lin_end: 10.0
+  melspec_loss_1:
+    weight: 1.0
+    base_loss_type: 'l1_loss'
+    lin_start: 1.0
+    lin_end: 1.0
+    
+    melspec_params:
+      n_fft: 2048
+      hop_length: 256
+      n_mels: 128
+      pad_mode: reflect
+      power: 1.0
+      norm: "slaney"
+      mel_scale: "htk"
 
-  #   melspec_params:
-  #     n_fft: 1024
-  #     hop_length: 256
-  #     n_mels: 128
-  #     pad_mode: reflect
-  #     power: 2.0
-  #     norm: "slaney"
-  #     mel_scale: "htk"
+  melspec_loss_2:
+    weight: 1.0
+    base_loss_type: 'l1_loss'
+    lin_start: 1.0
+    lin_end: 1.0
 
-  # melspec_loss_3:
-  #   weight: 1.0
-  #   base_loss_type: 'l2_loss'
-  #   lin_start: 1
-  #   lin_end: 1
+    melspec_params:
+      n_fft: 1024
+      hop_length: 128
+      n_mels: 128
+      pad_mode: reflect
+      power: 2.0
+      norm: "slaney"
+      mel_scale: "htk"
 
-  #   melspec_params:
-  #     n_fft: 512
-  #     hop_length: 512
-  #     n_mels: 64
-  #     pad_mode: reflect
-  #     power: 1.0
-  #     norm: "slaney"
-  #     mel_scale: "htk"
-  
+  melspec_loss_3:
+    weight: 1.0
+    base_loss_type: 'l1_loss'
+    lin_start: 0.1
+    lin_end: 20
+
+    melspec_params:
+      n_fft: 512
+      hop_length: 128
+      n_mels: 64
+      pad_mode: reflect
+      power: 1.0
+      norm: "slaney"
+      mel_scale: "htk"
+
+  melspec_loss_4:
+    weight: 5.0
+    base_loss_type: 'l1_loss'
+    lin_start: 0.5
+    lin_end: 10.0
+    
+    melspec_params:
+      n_fft: 2048
+      hop_length: 256
+      n_mels: 128
+      pad_mode: reflect
+      power: 1.0
+      norm: "slaney"
+      mel_scale: "htk"
+
+  melspec_loss_5:
+    weight: 5.0
+    base_loss_type: 'l1_loss'
+    lin_start: 0.1
+    lin_end: 20
+
+    melspec_params:
+      n_fft: 512
+      hop_length: 256
+      n_mels: 64
+      pad_mode: reflect
+      power: 2.0
+      norm: "slaney"
+      mel_scale: "htk"

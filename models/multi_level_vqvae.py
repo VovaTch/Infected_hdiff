@@ -7,72 +7,122 @@ import torch.nn.functional as F
 from .vq_codebook import VQCodebook
 from .base import BaseNetwork
 from loss import TotalLoss
-from utils.other import SinusoidalPositionEmbeddings, getPositionEncoding
+from utils.other import ACTIVATIONS
 
 
+class Res1DBlock(nn.Module):
+    
+    def __init__(self, 
+                 num_channels: int, 
+                 num_res_conv: int,
+                 dilation_factor: int, 
+                 kernel_size: int,
+                 activation_type: str='gelu'):
+        
+        """
+        1D Conv res block, similar to Jukebox paper. This is a try because the transformer one didn't regress to the wanted waveform,
+        and the 1d vqvae doesn't reconstruct the sound well enough.
+        """
+        
+        super().__init__()
+        
+        self.activation = ACTIVATIONS[activation_type]
+        
+        # Create conv, activation, norm blocks
+        self.res_block_modules = nn.ModuleList([])
+        for idx in range(num_res_conv):
+            
+            # Keep output dimension equal to input dim
+            dilation = dilation_factor ** idx
+            padding = (kernel_size + (kernel_size - 1) * (dilation - 1) - 1) // 2
+            
+            if idx != num_res_conv - 1:
+                
+                self.res_block_modules.append(nn.Sequential(
+                    nn.Conv1d(num_channels, num_channels, kernel_size=kernel_size, dilation=dilation, 
+                              padding=padding),
+                    self.activation(),
+                    nn.BatchNorm1d(num_channels),
+                ))
+                
+            else:
+                
+                self.res_block_modules.append(nn.Sequential(
+                    nn.Conv1d(num_channels, num_channels, kernel_size=kernel_size, dilation=dilation, 
+                              padding=padding),
+                    self.activation(),
+                ))
+                
+                
+    def forward(self, x: torch.Tensor):
+        
+        x_init = x.clone()
+        for seq_module in self.res_block_modules:
+            x = seq_module(x)
+            
+        return x + x_init
+    
+    
+class Res1DBlockReverse(Res1DBlock):
+    
+    def __init__(self, 
+                 num_channels: int, 
+                 num_res_conv: int, 
+                 dilation_factor: int,
+                 kernel_size: int, 
+                 activation_type: str = 'gelu'):
+        
+        super().__init__(num_channels, num_res_conv, dilation_factor, kernel_size, activation_type)
+        
+        # Create conv, activation, norm blocks
+        self.res_block_modules = nn.ModuleList([])
+        for idx in range(num_res_conv):
+            
+            # Keep output dimension equal to input dim
+            dilation = dilation_factor ** (num_res_conv - idx - 1)
+            padding = (kernel_size + (kernel_size - 1) * (dilation - 1) - 1) // 2
+            
+            if idx != num_res_conv - 1:
+                
+                self.res_block_modules.append(nn.Sequential(
+                    nn.Conv1d(num_channels, num_channels, kernel_size=kernel_size, dilation=dilation, 
+                              padding=padding),
+                    self.activation(),
+                    nn.BatchNorm1d(num_channels),
+                ))
+                
+            else:
+                
+                self.res_block_modules.append(nn.Sequential(
+                    nn.Conv1d(num_channels, num_channels, kernel_size=kernel_size, dilation=dilation, 
+                              padding=padding),
+                    self.activation(),
+                ))
+    
+    
 class ConvDownsample(nn.Module):
     '''
     A small module handling downsampling via a convolutional layer instead of e.g. Maxpool.
     '''
     
-    def __init__(self, kernel_size: int, downsample_divide: int, in_dim: int):
+    def __init__(self, kernel_size: int, downsample_divide: int, in_dim: int, out_dim: int):
         
         super().__init__()
         self.kernel_size = kernel_size
         self.downsample_divide = downsample_divide
         self.in_dim = in_dim
+        self.out_dim = out_dim
         self.padding_needed = (kernel_size - 2) + (downsample_divide - 2)
         self.padding_needed = 0 if self.padding_needed < 0 else self.padding_needed # Safeguard against negative padding
         
         # Define the convolutional layer
-        self.conv_down = nn.Conv1d(in_dim, in_dim, kernel_size=kernel_size, stride=downsample_divide)
+        self.conv_down = nn.Conv1d(in_dim, out_dim, kernel_size=kernel_size, stride=downsample_divide)
         
     def forward(self, x):
         x = F.pad(x, (0, self.padding_needed))
         return self.conv_down(x)
-
-
-class SinActivation(nn.Module):
     
-    def __init__(self):
-        super().__init__()
     
-    def forward(self, x):
-        return torch.sin(x)
-
-
-class ClearModule(nn.Module):
-    
-    def __init__(self):
-        super().__init__()
-
-
-class ConvBlock1D(nn.Module):
-    """
-    Double conv block, I leave the change in dimensions to the encoder and decoder classes.
-    """
-    
-    def __init__(self, in_channels: int, out_channels: int, kernel_size: int, activation_type: str='gelu'):
-        super().__init__()
-        assert activation_type in ['gelu', 'sin'], 'unknown activation type'
-        if activation_type == 'gelu':
-            activation_func = nn.GELU()
-        elif activation_type == 'sin':
-            activation_func = SinActivation()
-        self.architecture = nn.Sequential(
-            nn.Conv1d(in_channels, out_channels, kernel_size=kernel_size, padding=kernel_size // 2),
-            activation_func,
-            nn.BatchNorm1d(out_channels),
-            nn.Conv1d(out_channels, out_channels, kernel_size=kernel_size, padding=kernel_size // 2),
-            activation_func,
-        )
-           
-            
-    def forward(self, x):
-        return self.architecture(x)
-        
-
-
 class Encoder1D(nn.Module):
     """
     Encoder class for the level 1 auto-encoder, this is constructed in a VAE manner.
@@ -82,58 +132,45 @@ class Encoder1D(nn.Module):
     def __init__(self, 
                  channel_list: List[int], 
                  dim_change_list: List[int], 
-                 input_channels: int=1, 
+                 input_channels: int=1,
                  kernel_size: int=5, 
+                 num_res_block_conv: int=3,
+                 dilation_factor: int=3,
                  dim_change_kernel_size: int=5,
-                 mid_attention: bool=False,
-                 attention_location: List[int]=[]):
+                 activation_type: str='gelu'):
         
         super().__init__()
         assert len(channel_list) == len(dim_change_list) + 1, "The channel list length must be greater than the dimension change list by 1"
         self.last_dim = channel_list[-1]
+        self.activation = ACTIVATIONS[activation_type]()
         
         # Create the module lists for the architecture
-        self.init_conv = nn.Conv1d(input_channels, channel_list[0], kernel_size=3, padding=1)
+        self.init_conv = nn.Conv1d(input_channels, channel_list[0], kernel_size=kernel_size, padding=1)
         self.conv_list = nn.ModuleList(
-            [ConvBlock1D(channel_list[idx], channel_list[idx + 1], kernel_size) for idx in range(len(dim_change_list))]
+            [Res1DBlock(channel_list[idx], num_res_block_conv, dilation_factor, kernel_size, activation_type)\
+                for idx in range(len(dim_change_list))]
         )
         self.dim_change_list = nn.ModuleList(
-            [ConvDownsample(kernel_size=dim_change_kernel_size, downsample_divide=dim_change_param, in_dim=channel_list[idx + 1]) 
+            [ConvDownsample(kernel_size=dim_change_kernel_size, downsample_divide=dim_change_param,\
+                in_dim=channel_list[idx], out_dim=channel_list[idx + 1]) 
              for idx, dim_change_param in enumerate(dim_change_list)]
         )
         
-        self.mid_attention = mid_attention
-        if mid_attention:
-            patch_collection_size = 1
-            self.attn = AttentionModule(in_dim=self.last_dim, 
-                                        hidden_size=self.last_dim * patch_collection_size * 32, 
-                                        patch_collection_size=patch_collection_size)
-            
-        self.attn_encoder = nn.ModuleDict({})
-        for loc in attention_location:
-            self.attn_encoder[str(loc)] = AttentionModule(in_dim=channel_list[loc + 1],
-                                                     hidden_size=512,
-                                                     patch_collection_size=16)
-        
         
     def forward(self, x):
-        
+
         x = self.init_conv(x)
         
         for idx, (conv, dim_change) in enumerate(zip(self.conv_list, self.dim_change_list)):
             x = conv(x)
             x = dim_change(x)
-            x = F.gelu(x)
-        
-            if str(idx) in self.attn_encoder:
-                x = self.attn_encoder[str(idx)](x)
-        
-        if self.mid_attention:
-            x = self.attn(x)
-        
+            
+            if idx != len(self.dim_change_list) - 1:
+                x = self.activation(x)
+
         return x
-
-
+    
+    
 class Decoder1D(nn.Module):
     
     
@@ -141,80 +178,48 @@ class Decoder1D(nn.Module):
                  channel_list: List[int], 
                  dim_change_list: List[int], 
                  input_channels: int=1, 
-                 sin_locations: List[int]=None,
                  kernel_size: int=5,
                  dim_add_kernel_add: int=12,
-                 bottleneck_kernel_size: int=31,
-                 mid_attention: bool=False,
-                 attention_location: List[int]=[]):
+                 num_res_block_conv: int=3,
+                 dilation_factor: int=3,
+                 activation_type: str='gelu'):
+        """
+        A simpler decoder than the old version, maybe will still need to push here some attention.
+        """
+        
         
         super().__init__()
         assert len(channel_list) == len(dim_change_list) + 1, "The channel list length must be greater than the dimension change list by 1"
-        assert bottleneck_kernel_size % 2 == 1 or bottleneck_kernel_size == 0, \
-            f"The bottleneck kernel size {bottleneck_kernel_size} must be an odd number or zero."
-        
-        self.bottleneck_kernel_size = bottleneck_kernel_size
+        self.activation = ACTIVATIONS[activation_type]()
         
         # Create the module lists for the architecture
         self.end_conv = nn.Conv1d(channel_list[-1], input_channels, kernel_size=3, padding=1)
-        if bottleneck_kernel_size != 0:
-            self.conv_1d_end = nn.Sequential(
-                nn.Conv1d(input_channels, channel_list[1], kernel_size=bottleneck_kernel_size, padding=bottleneck_kernel_size // 2),
-                nn.GELU(),
-                nn.Conv1d(channel_list[1], input_channels, kernel_size=bottleneck_kernel_size, padding=bottleneck_kernel_size // 2)
-            )
         self.conv_list = nn.ModuleList(
-            [ConvBlock1D(channel_list[idx], channel_list[idx + 1], kernel_size, activation_type='gelu') 
+            [Res1DBlockReverse(channel_list[idx], num_res_block_conv, dilation_factor, kernel_size, activation_type) 
              for idx in range(len(dim_change_list))]
         )
         assert dim_add_kernel_add % 2 == 0, 'dim_add_kernel_size must be an even number.'
         self.dim_change_list = nn.ModuleList(
-            [nn.ConvTranspose1d(channel_list[idx + 1], channel_list[idx + 1], 
+            [nn.ConvTranspose1d(channel_list[idx], channel_list[idx + 1], 
                                 kernel_size=dim_change_list[idx] + dim_add_kernel_add, 
                                 stride=dim_change_list[idx], 
                                 padding=dim_add_kernel_add // 2)
              for idx in range(len(dim_change_list))]
         )
-        self.sin_locations = sin_locations
-        
-        self.mid_attention = mid_attention
-        if mid_attention:
-            patch_collection_size = 1
-            self.attn = AttentionModule(in_dim=channel_list[0], 
-                                        hidden_size=channel_list[0] * patch_collection_size * 64, 
-                                        patch_collection_size=patch_collection_size)
-            
-        self.attn_decoder = nn.ModuleDict({})
-        for loc in attention_location:
-            self.attn_decoder[str(loc)] = AttentionModule(in_dim=channel_list[loc + 1],
-                                                     hidden_size=512,
-                                                     patch_collection_size=16)
 
         
     def forward(self, z):
         
-        if self.mid_attention:
-            z = self.attn(z)
-        
-        for idx, (conv, dim_change) in enumerate(zip(self.conv_list, self.dim_change_list)):
+        for _, (conv, dim_change) in enumerate(zip(self.conv_list, self.dim_change_list)):
             z = conv(z)
             z = dim_change(z)
-            
-            # Trying to have a sinusoidal activation here for repetitive data
-            if self.sin_locations is not None:
-                if idx + 1 in self.sin_locations:
-                    z = torch.sin(z.clone())
-            else:
-                z = F.gelu(z)
-                
-            if str(idx) in self.attn_decoder:
-                z = self.attn_decoder[str(idx)](z)
+            z = self.activation(z)
             
         x_out = self.end_conv(z)
             
-        return x_out + self.conv_1d_end(x_out) if self.bottleneck_kernel_size != 0 else x_out
-
-
+        return x_out
+    
+    
 class VQ1D(nn.Module):
     
     
@@ -234,112 +239,8 @@ class VQ1D(nn.Module):
             output.update({'emb': emb})
             
         return output
-        
-
-class AttentionModule(nn.Module):
-    
-    def __init__(self, 
-                 in_dim: int,
-                 hidden_size: int, 
-                 patch_collection_size: int, 
-                 n_heads: int=4, 
-                 **kwargs):
-        
-        super().__init__()
-        self.hidden_size = hidden_size
-        self.patch_collection_size = patch_collection_size
-        self.n_heads = n_heads
-        self.in_dim = in_dim
-        
-        # Defining the transformer
-        assert hidden_size % n_heads == 0, 'The hidden size must be divisible by the number of heads.'
-        self.encoder_layer = nn.TransformerEncoderLayer(d_model=self.hidden_size, nhead=n_heads, dropout=0.0, norm_first=True)
-        self.encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=2)
-        self.positional_encoding = SinusoidalPositionEmbeddings(self.hidden_size)
-        
-        # Define the FC layers, one for in, one for out
-        self.fc_in = nn.Linear(in_dim * patch_collection_size, hidden_size)
-        self.fc_out = nn.Linear(hidden_size, in_dim * patch_collection_size)
-        
-        
-    def _patchify(self, x: torch.Tensor):
-        """
-        Apparently the view function doesn't produce the required result. As such, this function reshapes x in the required patch shape.
-        """
-        
-        # Create the reshaped tensor
-        x = self._right_pad_if_necessary(x.transpose(1, 2)).transpose(1, 2)
-        x_size = x.size() # BS x C x W, we want BS x C*bl x bl
-        x_required_size = [x_size[0], self.patch_collection_size * x_size[1], x_size[2] // self.patch_collection_size]
-        x_reshaped = torch.zeros(x_required_size).to(x.device)
-        
-        # Fit the data into the required shape
-        for block_idx in range(x_required_size[2]):
-            # data_slice = x[:, :, block_idx::x_required_size[2]]
-            data_slice = x[:, :, block_idx * self.patch_collection_size: (block_idx + 1) * self.patch_collection_size]
-            x_reshaped[:, :, block_idx] = data_slice.transpose(1, 2).flatten(start_dim=1)
-            
-        # Return the reshaped tensor
-        return x_reshaped.transpose(1, 2) # BS x bl x C * W / bl
     
     
-    def _right_pad_if_necessary(self, x: torch.Tensor):
-        """
-        Assume x's dimensions are BS x W x C
-        """
-        
-        x_width = x.shape[1]
-        if x_width % (self.in_dim * self.patch_collection_size) != 0:
-            num_missing_values = (self.in_dim * self.patch_collection_size)\
-                - x_width % (self.in_dim * self.patch_collection_size)
-            last_dim_padding = (0, 0, 0, num_missing_values)
-            x = F.pad(x, last_dim_padding)
-        return x
-    
-    
-    def _depatchify(self, x_reshaped: torch.Tensor):
-        """
-        After patching, this function reverses the patching process in _patchify. Assumes x_reshaped is BS x C * W / bl x bl
-        """
-        
-        # Create the origin tensor shape
-        x_reshaped = x_reshaped.transpose(1, 2)
-        x_reshaped_size = x_reshaped.size() # BS x C * W / bl x bl
-        x_required_size = [x_reshaped_size[0], 
-                           x_reshaped_size[1] // self.patch_collection_size, 
-                           x_reshaped_size[2] * self.patch_collection_size]
-        x = torch.zeros(x_required_size).to(x_reshaped.device)
-        
-        # Fit the data into the required shape
-        for block_idx in range(x_reshaped_size[2]):
-            data_slice = x_reshaped[:, :, block_idx]
-            intermediate_block = data_slice.view((x_required_size[0], self.patch_collection_size, x_required_size[1]))
-            x[:, :, block_idx * self.patch_collection_size: (block_idx + 1) * self.patch_collection_size] =\
-                intermediate_block.transpose(1, 2)
-                
-        # Return the tensor with the original shape
-        return x
-
-
-    def forward(self, x: torch.Tensor):
-        
-        x = self._patchify(x)
-        x = self.fc_in(x)
-        
-        # Positional embedding
-        pos_emb_range = torch.arange(0, x.shape[1]).to(x.device)
-        pos_emb_mat = self.positional_encoding(pos_emb_range)
-        pos_emb_in = pos_emb_mat.unsqueeze(0).repeat((x.shape[0], 1, 1))
-        # x += pos_emb_in
-        
-        # Transformer
-        x = self.encoder(x)
-        x = self.fc_out(x)
-        x = self._depatchify(x)
-        
-        return x
-
-
 class MultiLvlVQVariationalAutoEncoder(BaseNetwork):
     """
     VQ VAE that takes a music sample and converts it into latent space, hopefully faithfully reconstructing it later.
@@ -353,15 +254,15 @@ class MultiLvlVQVariationalAutoEncoder(BaseNetwork):
                  latent_depth: int,
                  loss_obj: TotalLoss=None,
                  vocabulary_size: int=8192,
-                 bottleneck_kernel_size: int=31,
                  input_channels: int=1,
-                 sin_locations: List[int] = None,
-                 attention_location: List[int] = None,
                  channel_dim_change_list: List[int] = [2, 2, 2, 4, 4],
                  encoder_kernel_size: int=5,
                  encoder_dim_change_kernel_size: int=5,
                  decoder_kernel_size: int=7,
                  decoder_dim_change_kernel_add: int=12,
+                 activation_type: str='gelu',
+                 num_res_block_conv: int=4,
+                 dilation_factor: int=3,
                  **kwargs):
         
         super().__init__(**kwargs)
@@ -379,24 +280,33 @@ class MultiLvlVQVariationalAutoEncoder(BaseNetwork):
         
         # Encoder parameter initialization
         encoder_channel_list = [hidden_size * (2 ** (idx + 1)) for idx in range(len(channel_dim_change_list))] + [latent_depth]
+        # encoder_channel_list = [hidden_size for _ in range(len(channel_dim_change_list))] + [latent_depth]
         encoder_dim_changes = channel_dim_change_list
         decoder_channel_list = [latent_depth] + [hidden_size * (2 ** (idx + 1))\
             for idx in reversed(range(len(channel_dim_change_list)))]
+        # decoder_channel_list = [latent_depth] + [hidden_size for _ in reversed(range(len(channel_dim_change_list)))]
         decoder_dim_changes = list(reversed(channel_dim_change_list))
         
         # Initialize network parts
-        rev_attention_location = [len(channel_dim_change_list) - element for element in attention_location]
         self.input_channels = input_channels
-        self.encoder = Encoder1D(encoder_channel_list, encoder_dim_changes, 
-                                 input_channels=input_channels, 
-                                 kernel_size=encoder_kernel_size, 
+        
+        self.encoder = Encoder1D(channel_list=encoder_channel_list,
+                                 dim_change_list=encoder_dim_changes,
+                                 input_channels=input_channels,
+                                 kernel_size=encoder_kernel_size,
+                                 num_res_block_conv=num_res_block_conv,
+                                 dilation_factor=dilation_factor,
                                  dim_change_kernel_size=encoder_dim_change_kernel_size,
-                                 attention_location=attention_location)
-        self.decoder = Decoder1D(decoder_channel_list, decoder_dim_changes, sin_locations=sin_locations, 
-                                     bottleneck_kernel_size=bottleneck_kernel_size, input_channels=input_channels,
-                                     kernel_size=decoder_kernel_size,
-                                     dim_add_kernel_add=decoder_dim_change_kernel_add,
-                                     attention_location=rev_attention_location)
+                                 activation_type=activation_type)
+        
+        self.decoder = Decoder1D(channel_list=decoder_channel_list,
+                                 dim_change_list=decoder_dim_changes,
+                                 input_channels=input_channels,
+                                 kernel_size=decoder_kernel_size,
+                                 dim_add_kernel_add=decoder_dim_change_kernel_add,
+                                 num_res_block_conv=num_res_block_conv,
+                                 dilation_factor=dilation_factor,
+                                 activation_type=activation_type)
         
         self.vq_module = VQ1D(latent_depth, num_tokens=vocabulary_size)
         
