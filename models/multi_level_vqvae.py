@@ -311,18 +311,44 @@ class MultiLvlVQVariationalAutoEncoder(BaseNetwork):
         self.vq_module = VQ1D(latent_depth, num_tokens=vocabulary_size)
         
         
-    def forward(self, x: torch.Tensor):
-        
-        origin_shape = x.shape
+    def encode(self, x: torch.Tensor):
         
         x_reshaped = x.reshape((x.shape[0], -1, self.input_channels)).permute((0, 2, 1))
-    
         z_e = self.encoder(x_reshaped)
+        return z_e
+    
+
+    def decode(self, z_e: torch.Tensor, origin_shape=None):
+        
         vq_block_output = self.vq_module(z_e, extract_losses=True)
         x_out = self.decoder(vq_block_output['v_q'])
         
+        if origin_shape is None:
+            origin_shape = (z_e.shape[0], self.input_channels, -1)
+        
+        x_out = x_out.permute((0, 2, 1)).reshape(origin_shape)
+        
         total_output = {**vq_block_output,
-                        'output': x_out.permute((0, 2, 1)).reshape(origin_shape)}
+                        'output': x_out}
+        
+        return x_out, total_output
+        
+        
+    def forward(self, x: torch.Tensor):
+        
+        origin_shape = x.shape
+        z_e = self.encode(x)
+        _, total_output = self.decode(z_e, origin_shape=origin_shape)
+        
+        
+        # x_reshaped = x.reshape((x.shape[0], -1, self.input_channels)).permute((0, 2, 1))
+    
+        # z_e = self.encoder(x_reshaped)
+        # vq_block_output = self.vq_module(z_e, extract_losses=True)
+        # x_out = self.decoder(vq_block_output['v_q'])
+        
+        # total_output = {**vq_block_output,
+        #                 'output': x_out.permute((0, 2, 1)).reshape(origin_shape)}
         
         loss_target = {'music_slice': x,
                        'z_e': z_e}
