@@ -97,8 +97,7 @@ class Lvl4InputDataset(Dataset):
         
         for batch in tqdm.tqdm(loader, 'Loading music slices...'):
             music_slice, current_track_name = batch['music slice'].to(self.device), batch['track name'][0]
-            music_slice = music_slice.reshape((music_slice.shape[0], self.lvl3_vqvae.input_channels, -1))
-            latent = self.lvl3_vqvae.encoder(music_slice)
+            latent = self.lvl3_vqvae.encode(music_slice)
             latent = self.lvl3_vqvae.vq_module(latent)['v_q']
             
             # If the collector is filled, reset the collector
@@ -123,6 +122,13 @@ class Lvl4InputDataset(Dataset):
                 
             prev_track_name = current_track_name
                 
+        # Collect the remainer after the loop
+        if latent_collector.shape[1] > 0:
+            padding = length * self.collection_parameter - latent_collector.shape[1]
+            latent_collector = F.pad(latent_collector, (0, padding))
+            data_collector = torch.cat((data_collector, latent_collector.unsqueeze(0)), dim=0)
+            track_name_list.append([current_track_name])
+            
         return data_collector, track_name_list
         
         
@@ -149,3 +155,4 @@ class Lvl4InputDataset(Dataset):
             raise NotImplemented('Currently this dataset only functions with preloading')
             
         return {'music slice': slice.to(self.device), 'track name': track_name[0]}
+    

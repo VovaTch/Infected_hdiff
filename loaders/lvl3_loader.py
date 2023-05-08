@@ -97,9 +97,6 @@ class Lvl3InputDataset(Dataset):
         
         for batch in tqdm.tqdm(loader, 'Loading music slices...'):
             music_slice, current_track_name = batch['music slice'].to(self.device), batch['track name'][0]
-            # music_slice = music_slice.reshape((music_slice.shape[0], self.lvl2_vqvae.input_channels, -1))
-            # music_slice = music_slice.permute((0, 2, 1))\
-            #     .reshape((music_slice.shape[0], -1, self.lvl2_vqvae.input_channels)).permute((0, 2, 1))
             latent = self.lvl2_vqvae.encode(music_slice)
             latent = self.lvl2_vqvae.vq_module(latent)['v_q']
             

@@ -50,10 +50,17 @@ class MusicDataModule(pl.LightningDataModule):
                                                   audio_dir=self.data_path,
                                                   **self.dataset_cfg)
             train_dataset_length = int(len(dataset) * (1 - self.eval_split_factor))
-            self.train_dataset, self.eval_dataset = random_split(dataset, 
-                                                                 (train_dataset_length, 
-                                                                 len(dataset) - train_dataset_length))
-            
+            if train_dataset_length > 10:
+                self.train_dataset, self.eval_dataset = random_split(dataset, 
+                                                                    (train_dataset_length, 
+                                                                    len(dataset) - train_dataset_length))
+            else:
+                # The training set is the entire dataset. The val dataset is part of the training
+                self.train_dataset = dataset
+                print(len(self.train_dataset))
+                _, self.eval_dataset = random_split(dataset, 
+                                                    (train_dataset_length, 
+                                                    len(dataset) - train_dataset_length))
             self.total_dataset_len = len(dataset)
             
             
