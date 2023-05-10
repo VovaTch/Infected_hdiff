@@ -97,7 +97,7 @@ class Lvl2InputDataset(Dataset):
         
         for batch in tqdm.tqdm(loader, 'Loading music slices...'):
             music_slice, current_track_name = batch['music slice'].to(self.device), batch['track name'][0]
-            latent = self.lvl1_vqvae.encoder(music_slice)
+            latent = self.lvl1_vqvae.encode(music_slice)
             latent = self.lvl1_vqvae.vq_module(latent)['v_q']
             
             # If the collector is filled, reset the collector
