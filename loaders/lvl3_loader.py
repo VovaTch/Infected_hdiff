@@ -122,7 +122,7 @@ class Lvl3InputDataset(Dataset):
                 
             prev_track_name = current_track_name
             
-        # Collect the remainer after the loop
+        # Collect the remainder after the loop
         if latent_collector.shape[1] > 0:
             padding = length * self.collection_parameter - latent_collector.shape[1]
             latent_collector = F.pad(latent_collector, (0, padding))
