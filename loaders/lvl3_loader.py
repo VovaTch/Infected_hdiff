@@ -121,6 +121,13 @@ class Lvl3InputDataset(Dataset):
                 running_idx = 0
                 
             prev_track_name = current_track_name
+            
+        # Collect the remainer after the loop
+        if latent_collector.shape[1] > 0:
+            padding = length * self.collection_parameter - latent_collector.shape[1]
+            latent_collector = F.pad(latent_collector, (0, padding))
+            data_collector = torch.cat((data_collector, latent_collector.unsqueeze(0)), dim=0)
+            track_name_list.append([current_track_name]) 
                 
         return data_collector, track_name_list
         
