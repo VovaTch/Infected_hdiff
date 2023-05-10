@@ -11,6 +11,7 @@ model:
   num_steps: 10
   scheduler: cosine
   amp: False
+  collection_parameter: 1
 
 
 learning:
@@ -27,7 +28,7 @@ learning:
   eval_split_factor: 0.01
   preload_data_file_path: 'data/music_samples/002-datatensor_gen.pt'
   preload_metadata_file_path: 'data/music_samples/002-metadata_gen.pkl'
-  slice_length: 512
+  slice_length: 4096
 
 
 loss:

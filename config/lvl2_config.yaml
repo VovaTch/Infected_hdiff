@@ -13,6 +13,7 @@ model:
   dilation_factor: 3
   num_res_block_conv: 5
   activation_type: 'gelu'
+  collection_parameter: 8
 
   encoder_kernel_size: 3
   encoder_dim_change_kernel_size: 3

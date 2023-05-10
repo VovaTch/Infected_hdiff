@@ -84,6 +84,16 @@
         },
 
         {
+            "name": "Python: Create Dataset Generative",
+            "type": "python",
+            "request": "launch",
+            "module": "scripts.create_datasets",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": ["-d", "cpu", "--generative"]
+        },
+
+        {
             "name": "Python: Run Integrator",
             "type": "python",
             "request": "launch",

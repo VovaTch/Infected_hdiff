@@ -32,6 +32,7 @@ class BaseLatentLoader(Dataset):
         self.preload_file_path = preload_file_path
         self.collection_parameter = collection_parameter
         self.slice_length = slice_length
+        self.metadata = None
         
         
         # Preload the data

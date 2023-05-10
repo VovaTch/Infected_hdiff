@@ -15,13 +15,13 @@ class Lvl2InputDataset(BaseLatentLoader):
                  slice_length: int=4096,
                  device: str="cpu",
                  preload: bool=True,
-                 preload_file_path: str="data/music_samples/001-datatensor.pt",
+                 preload_data_file_path: str="data/music_samples/001-datatensor.pt",
                  preload_metadata_file_path: str='data/music_samples/001-metadata.pkl',
                  **kwargs):
         
         super().__init__(collection_parameter, 
                          slice_length, 
-                         preload_file_path, 
+                         preload_data_file_path, 
                          preload_metadata_file_path, 
                          device, prev_dataset, 
                          prev_vqvae, 
@@ -42,13 +42,13 @@ class Lvl3InputDataset(BaseLatentLoader):
                  slice_length: int=4096,
                  device: str="cpu",
                  preload: bool=True,
-                 preload_file_path: str="data/music_samples/002-datatensor.pt",
+                 preload_data_file_path: str="data/music_samples/002-datatensor.pt",
                  preload_metadata_file_path: str='data/music_samples/002-metadata.pkl',
                  **kwargs):
         
         super().__init__(collection_parameter, 
                          slice_length, 
-                         preload_file_path, 
+                         preload_data_file_path, 
                          preload_metadata_file_path, 
                          device, prev_dataset, 
                          prev_vqvae, 
@@ -69,13 +69,13 @@ class Lvl4InputDataset(BaseLatentLoader):
                  slice_length: int=4096,
                  device: str="cpu",
                  preload: bool=True,
-                 preload_file_path: str="data/music_samples/003-datatensor.pt",
+                 preload_data_file_path: str="data/music_samples/003-datatensor.pt",
                  preload_metadata_file_path: str='data/music_samples/003-metadata.pkl',
                  **kwargs):
         
         super().__init__(collection_parameter, 
                          slice_length, 
-                         preload_file_path, 
+                         preload_data_file_path, 
                          preload_metadata_file_path, 
                          device, prev_dataset, 
                          prev_vqvae, 
@@ -96,13 +96,13 @@ class Lvl5InputDataset(BaseLatentLoader):
                  slice_length: int=512,
                  device: str="cpu",
                  preload: bool=True,
-                 preload_file_path: str="data/music_samples/004-datatensor.pt",
+                 preload_data_file_path: str="data/music_samples/004-datatensor.pt",
                  preload_metadata_file_path: str='data/music_samples/004-metadata.pkl',
                  **kwargs):
         
         super().__init__(collection_parameter, 
                          slice_length, 
-                         preload_file_path, 
+                         preload_data_file_path, 
                          preload_metadata_file_path, 
                          device, prev_dataset, 
                          prev_vqvae, 
