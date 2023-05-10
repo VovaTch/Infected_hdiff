@@ -25,6 +25,9 @@ learning:
   scheduler_type: 'none'
   dataset_name: 'music_slice_dataset'
   eval_split_factor: 0.01
+  preload_data_file_path: 'data/music_samples/004-datatensor_gen.pt'
+  preload_metadata_file_path: 'data/music_samples/004-metadata_gen.pkl'
+  slice_length: 512
 
 
 loss:

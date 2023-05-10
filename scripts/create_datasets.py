@@ -10,10 +10,14 @@ from utils.other import load_cfg_dict
 def main(args):
     
     device = args.device
-    cfgs = {1: 'config/lvl1_config.yaml',
-            2: 'config/lvl2_config.yaml',
-            3: 'config/lvl3_config.yaml',
-            4: 'config/lvl4_config.yaml'}
+    cfgs_vqvae = {1: 'config/lvl1_config.yaml',
+                    2: 'config/lvl2_config.yaml',
+                    3: 'config/lvl3_config.yaml',
+                    4: 'config/lvl4_config.yaml'}
+    cfgs_gen = {1: 'config/diff_lvl1_config.yaml',
+                    2: 'config/diff_lvl2_config.yaml',
+                    3: 'config/diff_lvl3_config.yaml',
+                    4: 'config/diff_lvl4_config.yaml'}
     datasets = {1: loaders.MP3SliceDataset,
                 2: loaders.Lvl2InputDataset,
                 3: loaders.Lvl3InputDataset,
@@ -23,13 +27,17 @@ def main(args):
                      3: 'model_weights/lvl3_vqvae.ckpt',
                      4: 'model_weights/lvl4_vqvae.ckpt'}
     
-    for idx in range(1, 6):
+    # Generative flag
+    init_idx = 2 if args.generative else 1
+    cfgs = cfgs_gen if args.generative else cfgs_vqvae
+    
+    for idx in range(init_idx, 6):
         
             
         # Load the older model if necessary
         try:
             if idx > 1:
-                cfg_prev = load_cfg_dict(cfgs[idx - 1])
+                cfg_prev = load_cfg_dict(cfgs_vqvae[idx - 1])
                 prev_dataset = datasets[idx - 1](**cfg_prev, device=device)
                 prev_vqvae = MultiLvlVQVariationalAutoEncoder.load_from_checkpoint(vqvae_weights[idx - 1],
                                                                                    **cfg_prev, strict=False).to(device)
@@ -44,9 +52,12 @@ def main(args):
             prev_dataset = None
             prev_vqvae = None
             
+        cfg_loaded = load_cfg_dict(cfgs[idx - 1])
+        del cfg_loaded['batch_size']
         data_module = MusicDataModule(batch_size=1, latent_level=idx, 
                                       previous_dataset=prev_dataset, 
-                                      previous_vqvae=prev_vqvae)
+                                      previous_vqvae=prev_vqvae,
+                                      **cfg_loaded)
         data_module.setup('fit')
         
         # Print the sample sizes and the name of the track.
@@ -63,6 +74,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-d', '--device', type=str, default='cpu',
                         help='Device for the vqvae.')
+    parser.add_argument('--generative', action='store_true',
+                        help='Flag for generating the generative datasets which have smaller sequence lengths.')
     args = parser.parse_args()
     
     main(args)

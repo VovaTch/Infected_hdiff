@@ -4,10 +4,7 @@ import pytorch_lightning as pl
 from torch.utils.data import DataLoader, random_split
 
 from .music_loader import MP3SliceDataset
-from .lvl2_loader import Lvl2InputDataset
-from .lvl3_loader import Lvl3InputDataset
-from .lvl4_loader import Lvl4InputDataset
-from .lvl5_loader import Lvl5InputDataset
+from .latent_loaders import Lvl2InputDataset, Lvl3InputDataset, Lvl4InputDataset, Lvl5InputDataset
 
 
 DATASETS = {1: MP3SliceDataset,
@@ -44,11 +41,12 @@ class MusicDataModule(pl.LightningDataModule):
     def setup(self, stage: str):
         
         if stage == 'fit':
-            
+        
             dataset = DATASETS[self.latent_level](prev_dataset=self.previous_dataset, 
-                                                  prev_vqvae=self.previous_vqvae,
-                                                  audio_dir=self.data_path,
-                                                  **self.dataset_cfg)
+                                                    prev_vqvae=self.previous_vqvae,
+                                                    audio_dir=self.data_path,
+                                                    **self.dataset_cfg)
+                
             train_dataset_length = int(len(dataset) * (1 - self.eval_split_factor))
             if train_dataset_length > 10:
                 self.train_dataset, self.eval_dataset = random_split(dataset, 
