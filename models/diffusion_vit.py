@@ -6,7 +6,7 @@ import torch.nn.functional as F
 import pytorch_lightning as pl
 import matplotlib.pyplot as plt
 
-from .base import BaseNetwork
+from .base import BaseDiffusionModel
 from utils.other import SinusoidalPositionEmbeddings
 from utils.diffusion import DiffusionConstants, forward_diffusion_sample, get_index_from_list
 from loss import TotalLoss
@@ -31,7 +31,7 @@ def get_emb(sin_inp: torch.Tensor):
     return torch.flatten(emb, -2, -1)
 
 
-class DiffusionViT(BaseNetwork):
+class DiffusionViT(BaseDiffusionModel):
     """
     Using DiT, this module is used for multiple levels of denoisers, each instance has it's own DiT. 
     TODO: Write the code for the accompanying functions and methods required for the diffusion.
@@ -50,15 +50,13 @@ class DiffusionViT(BaseNetwork):
                  **kwargs) -> pl.LightningModule:
         
         # Initialize variables
-        super().__init__(**kwargs)
+        super().__init__(num_steps=num_steps, scheduler=scheduler, **kwargs)
         self.in_dim = in_dim
         self.hidden_size = hidden_size
         self.token_collect_size = token_collect_size
         self.num_blocks = num_blocks
         self.dropout = dropout
         self.num_heads = num_heads
-        self.num_steps = num_steps
-        self.diffusion_constants = DiffusionConstants(self.num_steps, scheduler=scheduler)
         self.loss_obj = loss_obj
         
         assert hidden_size % num_heads == 0, \
@@ -245,72 +243,3 @@ class DiffusionViT(BaseNetwork):
         
         loss_total = self.loss_obj(outputs_pred, outputs_target)
         return loss_total
-    
-    
-    @torch.no_grad()
-    def sample_timestep(self, 
-                        x: torch.Tensor, 
-                        t: torch.Tensor,
-                        conditional_list: Optional[List[torch.Tensor]]=None):
-        """
-        Calls the model to predict the noise in the sound sample and returns 
-        the denoised sound sample. 
-        Applies noise to this sound sample, if we are not in the last step yet.
-        """
-        
-        betas_t = get_index_from_list(self.diffusion_constants.betas, t, x.shape)
-        sqrt_one_minus_alphas_cumprod_t = get_index_from_list(self.diffusion_constants.sqrt_one_minus_alphas_cumprod, t, x.shape)
-        sqrt_recip_alphas_t = get_index_from_list(self.diffusion_constants.sqrt_recip_alphas, t, x.shape)
-        
-        # Call model (current image - noise prediction)
-        noise_pred = self(x, t, conditional_list)
-        x = self._right_pad_if_necessary(x.transpose(1, 2)).transpose(1, 2)
-        model_mean = sqrt_recip_alphas_t * (x - betas_t * noise_pred / sqrt_one_minus_alphas_cumprod_t)
-        posterior_variance_t = get_index_from_list(self.diffusion_constants.posterior_variance, t, x.shape)
-        posterior_variance_t[t == 0] = 0
-        
-        # print(sqrt_recip_alphas_t)
-        # print(betas_t)
-        # print(sqrt_one_minus_alphas_cumprod_t)
-        
-        # plt.figure(figsize=(25, 5))
-        # plt.plot((x[0, ...])[0, ...].squeeze(0).cpu().detach().numpy())
-        # plt.show()
-        
-        # plt.figure(figsize=(25, 5))
-        # plt.plot((self(x, t, conditional_list)[0, ...]).squeeze(0).cpu().detach().numpy())
-        # plt.show()
-        
-        # plt.figure(figsize=(25, 5))
-        # plt.plot((x[0, ...] - self(x, t, conditional_list)[0, ...]).squeeze(0).cpu().detach().numpy())
-        # plt.show()
-        
-        noise = torch.randn_like(x)
-        return model_mean + torch.sqrt(posterior_variance_t) * noise 
-        
-        
-    @torch.no_grad()
-    def denoise(self, noisy_input: torch.Tensor, conditionals: Optional[List[torch.Tensor]]=None, show_process_plots: bool=False):
-        """
-        The main denoising method. Expects to get a BS x 1 x Length input, will output a denoised music sample.
-
-        Args:
-            noisy_input (torch.Tensor): the input, can be noise, can be noisy music. The model should handle both.
-        """
-        
-        running_slice = noisy_input.clone()
-        batch_size = noisy_input.shape[0]
-        for time_step in reversed(range(self.num_steps)):
-
-            time_input = torch.tensor([time_step for _ in range(batch_size)]).to(self.device)
-            running_slice = self.sample_timestep(running_slice, time_input, conditionals)
-            
-            if show_process_plots:
-                plt.figure(figsize=(25, 5))
-                plt.ylim((-1.1, 1.1))
-                plt.plot(running_slice[0, ...].squeeze(0).cpu().detach().numpy())
-                plt.show()
-                    
-        running_slice[running_slice > 1] = 1
-        running_slice[running_slice < -1] = -1
-        return running_slice
