@@ -79,7 +79,7 @@ class BaseDiffusionModel(BaseNetwork):
         
         
     @abstractmethod
-    def forward(x: torch.Tensor, t: torch.Tensor, cond: List[torch.Tensor]=None):
+    def forward(self, x: torch.Tensor, t: torch.Tensor, cond: List[torch.Tensor]=None):
         """
         Forward method for the diffusion, must address both the time embedding and the conditionals
         """
