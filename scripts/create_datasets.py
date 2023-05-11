@@ -14,10 +14,10 @@ def main(args):
                     2: 'config/lvl2_config.yaml',
                     3: 'config/lvl3_config.yaml',
                     4: 'config/lvl4_config.yaml'}
-    cfgs_gen = {1: 'config/diff_lvl1_config.yaml',
-                    2: 'config/diff_lvl2_config.yaml',
-                    3: 'config/diff_lvl3_config.yaml',
-                    4: 'config/diff_lvl4_config.yaml'}
+    cfgs_gen = {2: 'config/diff_lvl1_config.yaml',
+                    3: 'config/diff_lvl2_config.yaml',
+                    4: 'config/diff_lvl3_config.yaml',
+                    5: 'config/diff_lvl4_config.yaml'}
     datasets = {1: loaders.MP3SliceDataset,
                 2: loaders.Lvl2InputDataset,
                 3: loaders.Lvl3InputDataset,
@@ -52,7 +52,7 @@ def main(args):
             prev_dataset = None
             prev_vqvae = None
             
-        cfg_loaded = load_cfg_dict(cfgs[idx - 1])
+        cfg_loaded = load_cfg_dict(cfgs[idx])
         del cfg_loaded['batch_size']
         data_module = MusicDataModule(batch_size=1, latent_level=idx, 
                                       previous_dataset=prev_dataset, 
