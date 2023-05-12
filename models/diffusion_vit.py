@@ -67,7 +67,7 @@ class DiffusionViT(BaseDiffusionModel):
         self.transformer_layer = nn.TransformerDecoderLayer(d_model=self.hidden_size, nhead=num_heads, 
                                                             batch_first=True, dropout=dropout, norm_first=True)
         self.transformer = nn.TransformerDecoder(self.transformer_layer, num_layers=num_blocks)
-        self.positional_encoding = SinusoidalPositionEmbeddings(self.hidden_size // num_heads)
+        self.positional_encoding = SinusoidalPositionEmbeddings(self.hidden_size)
         self.fc_out = nn.Linear(hidden_size, in_dim * token_collect_size)
         self.empty_embedding = nn.Embedding(num_embeddings=1, embedding_dim=hidden_size)
         
@@ -169,7 +169,7 @@ class DiffusionViT(BaseDiffusionModel):
         x = self.fc_in(x)
         pos_emb_range = torch.arange(0, x.shape[1]).to(self.device)
         pos_emb_mat = self.positional_encoding(pos_emb_range)
-        pos_emb_in = pos_emb_mat.unsqueeze(0).repeat((x.shape[0], 1, self.num_heads))
+        pos_emb_in = pos_emb_mat.unsqueeze(0).repeat((x.shape[0], 1, 1))
         x += pos_emb_in # BS x bl x h
         
         # Transformer

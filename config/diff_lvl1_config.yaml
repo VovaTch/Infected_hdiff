@@ -4,11 +4,11 @@ model:
   slice_time: 0.7430386 # Length of slice to get 2^15 samples
   in_dim: 8
   hidden_size: 512
-  token_collect_size: 4
+  token_collect_size: 1
   num_blocks: 6
   num_heads: 8
   dropout: 0.0
-  num_steps: 100
+  num_steps: 300
   scheduler: linear
   amp: False
   collection_parameter: 1
@@ -16,7 +16,7 @@ model:
 
 learning:
   batch_size: 6
-  learning_rate: 0.00001
+  learning_rate: 0.0001
   weight_decay: 0.0001
   epochs: 4000
   gradient_clip: 0.5
