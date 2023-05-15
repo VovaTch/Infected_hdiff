@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from .base import BaseDiffusionModel
+from utils.other import SinusoidalPositionEmbeddings
 
 
 class WaveNetDiffusion(BaseDiffusionModel):
@@ -16,6 +17,7 @@ class WaveNetDiffusion(BaseDiffusionModel):
                  filter_size_decoder: int,
                  num_input_channels: int=1,
                  num_filters: int=1,
+                 time_emb_dim: int=32,
                  **kwargs):
             
         super().__init__(**kwargs)
@@ -40,14 +42,28 @@ class WaveNetDiffusion(BaseDiffusionModel):
         # Initialize encoder and decoder
         self.encoder = nn.ModuleList()
         self.decoder = nn.ModuleList()
+        self.encoder_time_emb = nn.ModuleList()
+        self.decoder_time_emb = nn.ModuleList()
         
         for i in range(self.num_encoder_layers):
             self.encoder.append(nn.Conv1d(enc_channel_in[i], enc_channel_out[i], self.filter_size_encoder, 
                                           padding=self.filter_size_encoder // 2))
+            
+        for i in range(self.num_encoder_layers):
+            self.encoder_time_emb.append(nn.Sequential(
+                nn.Linear(time_emb_dim, enc_channel_out[i]),
+                nn.GELU(),
+            ))
 
         for i in range(self.num_decoder_layers):
             self.decoder.append(nn.Conv1d(dec_channel_in[i], dec_channel_out[i], self.filter_size_decoder,
                                           padding=self.filter_size_decoder // 2))
+            
+        for i in range(self.num_encoder_layers):
+            self.decoder_time_emb.append(nn.Sequential(
+                nn.Linear(time_emb_dim, dec_channel_out[i]),
+                nn.GELU(),
+            ))
 
         self.middle_layer = nn.Sequential(
             nn.Conv1d(enc_channel_out[-1], enc_channel_out[-1], self.filter_size_encoder, 
@@ -58,6 +74,13 @@ class WaveNetDiffusion(BaseDiffusionModel):
             nn.Conv1d(self.num_input_channels, self.num_input_channels, kernel_size=1),
             nn.Tanh()
         )
+        
+        # Time embedding
+        self.time_emb = nn.Sequential(
+                SinusoidalPositionEmbeddings(time_emb_dim),
+                nn.Linear(time_emb_dim, time_emb_dim),
+                nn.GELU(),
+            )
         
         
     def forward(self, x: torch.Tensor, t: torch.Tensor, cond: List[torch.Tensor]=None):
