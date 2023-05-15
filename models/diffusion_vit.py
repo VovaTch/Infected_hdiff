@@ -44,7 +44,6 @@ class DiffusionViT(BaseDiffusionModel):
                  num_blocks: int,
                  num_heads: int,
                  num_steps: int,
-                 loss_obj: TotalLoss=None,
                  dropout: float=0.0,
                  scheduler: str='cosine',
                  **kwargs) -> pl.LightningModule:
@@ -57,7 +56,6 @@ class DiffusionViT(BaseDiffusionModel):
         self.num_blocks = num_blocks
         self.dropout = dropout
         self.num_heads = num_heads
-        self.loss_obj = loss_obj
         
         assert hidden_size % num_heads == 0, \
             f'The hidden dimension {hidden_size} must be divisible by the number of heads {num_heads}.'

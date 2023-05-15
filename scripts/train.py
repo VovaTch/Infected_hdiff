@@ -5,6 +5,7 @@ from models.multi_level_vqvae import MultiLvlVQVariationalAutoEncoder
 from models.transformer_vqvae import TransformerVQVAE
 from models.unet_denoiser import WaveUNet_Denoiser
 from models.diffusion_vit import DiffusionViT
+from models.diffusion_unet import WaveNetDiffusion
 from utils.other import load_cfg_dict, initialize_trainer
 from loss import TotalLoss
 from loaders import MusicDataModule
@@ -90,6 +91,7 @@ def train_denoiser(args):
     lvl1_cfg = load_cfg_dict(lvl1_config_path)
     lvl1_vqvae = MultiLvlVQVariationalAutoEncoder(**lvl1_cfg)
     lvl1_vqvae = lvl1_vqvae.load_from_checkpoint('model_weights/lvl1_vqvae.ckpt', **lvl1_cfg).requires_grad_(False)
+    data_module = MusicDataModule(**lvl1_cfg, latent_level=1)
     
     # Load model
     config_path = args.config if args.config is not None else 'config/denoiser_config.yaml'
@@ -102,7 +104,7 @@ def train_denoiser(args):
     trainer = initialize_trainer(cfg, num_devices=args.num_devices)
     
     # Start training
-    trainer.fit(model)
+    trainer.fit(model, data_module)
     
     # If running on Colab
     if IN_COLAB:
@@ -119,7 +121,7 @@ def train_diff(args, level: int=0):
         
     # Load model with loss
     config_path_selection = {0: 'config/denoiser_diff_config.yaml',
-                             1: 'config/diff_lvl1_config.yaml',
+                             1: 'config/diff_lvl1_wavenet_config.yaml',
                              2: 'config/diff_lvl2_config.yaml',
                              3: 'config/diff_lvl3_config.yaml',
                              4: 'config/diff_lvl4_config.yaml'}
@@ -128,9 +130,9 @@ def train_diff(args, level: int=0):
     loss = TotalLoss(cfg['loss'])
     data_module = MusicDataModule(**cfg, latent_level=level + 1, dataset_cfg=cfg)
     if args.resume is None:
-        model = DiffusionViT(**cfg, loss_obj=loss)
+        model = WaveNetDiffusion(**cfg, loss_obj=loss)
     else:
-        model = DiffusionViT.load_from_checkpoint(args.resume, **cfg, loss_obj=loss)
+        model = WaveNetDiffusion.load_from_checkpoint(args.resume, **cfg, loss_obj=loss)
         
     # Initialize trainer
     trainer = initialize_trainer(cfg, num_devices=args.num_devices)

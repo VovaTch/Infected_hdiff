@@ -6,7 +6,7 @@ import pytorch_lightning as pl
 import matplotlib.pyplot as plt
 
 from utils.diffusion import get_index_from_list, DiffusionConstants
-
+from loss import TotalLoss
 
 class BaseNetwork(pl.LightningModule):
     
@@ -17,6 +17,7 @@ class BaseNetwork(pl.LightningModule):
                  epochs: int,
                  scheduler_type: str,
                  steps_per_epoch: int=500,
+                 loss_obj: TotalLoss=None,
                  **kwargs) -> pl.LightningModule:
         
         super().__init__()
@@ -29,6 +30,7 @@ class BaseNetwork(pl.LightningModule):
         self.epochs = epochs
         self.scheduler_name = scheduler_type
         self.steps_per_epoch = steps_per_epoch
+        self.loss_obj = loss_obj
         
         # Optimizers
         assert scheduler_type in ['none', 'one_cycle_lr', 'reduce_on_platou'] # TODO fix typo, program the schedulers in
