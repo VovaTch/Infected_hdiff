@@ -2,7 +2,7 @@ model:
   name: vqvae_lvl_2
   sample_rate: 44100
   slice_time: 0.7430386 # Length of slice to get 2^15 samples
-  hidden_size: 128
+  hidden_size: 64
   latent_width: 128
   latent_depth: 8
   vocabulary_size: 8192

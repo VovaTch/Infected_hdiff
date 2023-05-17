@@ -122,9 +122,9 @@ def train_diff(args, level: int=0):
     # Load model with loss
     config_path_selection = {0: 'config/denoiser_diff_config.yaml',
                              1: 'config/diff_lvl1_wavenet_config.yaml',
-                             2: 'config/diff_lvl2_config.yaml',
-                             3: 'config/diff_lvl3_config.yaml',
-                             4: 'config/diff_lvl4_config.yaml'}
+                             2: 'config/diff_lvl2_wavenet_config.yaml',
+                             3: 'config/diff_lvl3_wavenet_config.yaml',
+                             4: 'config/diff_lvl4_wavenet_config.yaml'}
     config_path = config_path_selection[level] if args.config is None else args.config
     cfg = load_cfg_dict(config_path)
     loss = TotalLoss(cfg['loss'])

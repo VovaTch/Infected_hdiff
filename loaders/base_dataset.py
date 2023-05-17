@@ -20,6 +20,7 @@ class BaseLatentLoader(Dataset):
                  prev_dataset=None,
                  prev_vqvae: MultiLvlVQVariationalAutoEncoder=None,
                  preload: bool=True,
+                 generative: bool=False,
                  **kwargs):
         
         # Initialize the object variables
@@ -33,6 +34,7 @@ class BaseLatentLoader(Dataset):
         self.collection_parameter = collection_parameter
         self.slice_length = slice_length
         self.metadata = None
+        self.generative = generative
         
         
         # Preload the data
@@ -147,4 +149,19 @@ class BaseLatentLoader(Dataset):
         else:
             raise NotImplemented('Currently this dataset only functions with preloading')
             
-        return {'music slice': slice.to(self.device), 'track name': track_name[0]}
+        batch = {'music slice': slice.to(self.device), 'track name': track_name[0]}
+        if self.generative:
+            
+            if idx == 0:
+                back_cond_slice = torch.zeros_like(slice.to(self.device))
+            else:
+                back_cond_slice = self.processed_slice_data[idx - 1].to(self.device)
+                
+            if idx == self.__len__() - 1:
+                forward_cond_slice = torch.zeros_like(slice.to(self.device))
+            else:
+                forward_cond_slice = self.processed_slice_data[idx + 1].to(self.device)
+            
+            batch.update({'back conditional slice': back_cond_slice, 'forward conditional slice': forward_cond_slice})
+            
+        return batch
