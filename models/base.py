@@ -18,6 +18,7 @@ class BaseNetwork(pl.LightningModule):
                  scheduler_type: str,
                  steps_per_epoch: int=500,
                  loss_obj: TotalLoss=None,
+                 data_multiplier: float=1,
                  **kwargs) -> pl.LightningModule:
         
         super().__init__()
@@ -31,6 +32,7 @@ class BaseNetwork(pl.LightningModule):
         self.scheduler_name = scheduler_type
         self.steps_per_epoch = steps_per_epoch
         self.loss_obj = loss_obj
+        self.data_multiplier = data_multiplier
         
         # Optimizers
         assert scheduler_type in ['none', 'one_cycle_lr', 'reduce_on_platou'] # TODO fix typo, program the schedulers in
@@ -151,12 +153,15 @@ class BaseDiffusionModel(BaseNetwork):
             noisy_input (torch.Tensor): the input, can be noise, can be noisy music. The model should handle both.
         """
         
-        running_slice = noisy_input.clone()
+        multiplied_noisy_input = self.data_multiplier * noisy_input
+        multiplied_conditionals = [cond * self.data_multiplier for cond in conditionals]
+        
+        running_slice = multiplied_noisy_input.clone()
         batch_size = noisy_input.shape[0]
         for time_step in reversed(range(self.num_steps)):
 
             time_input = torch.tensor([time_step for _ in range(batch_size)]).to(self.device)
-            running_slice = self.sample_timestep(running_slice, time_input, conditionals)
+            running_slice = self.sample_timestep(running_slice, time_input, multiplied_conditionals)
             
             if show_process_plots:
                 plt.figure(figsize=(25, 5))
@@ -164,7 +169,7 @@ class BaseDiffusionModel(BaseNetwork):
                 plt.plot(running_slice[0, ...].squeeze(0).cpu().detach().numpy())
                 plt.show()
                     
-        return running_slice
+        return running_slice / self.data_multiplier
     
     
     

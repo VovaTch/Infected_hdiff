@@ -12,6 +12,7 @@ model:
   num_steps: 300
   scheduler: linear
   amp: False
+  data_multiplier: 1
 
 
 learning:
