@@ -18,7 +18,6 @@ class BaseNetwork(pl.LightningModule):
                  scheduler_type: str,
                  steps_per_epoch: int=500,
                  loss_obj: TotalLoss=None,
-                 data_multiplier: float=1,
                  **kwargs) -> pl.LightningModule:
         
         super().__init__()
@@ -32,7 +31,6 @@ class BaseNetwork(pl.LightningModule):
         self.scheduler_name = scheduler_type
         self.steps_per_epoch = steps_per_epoch
         self.loss_obj = loss_obj
-        self.data_multiplier = data_multiplier
         
         # Optimizers
         assert scheduler_type in ['none', 'one_cycle_lr', 'reduce_on_platou'] # TODO fix typo, program the schedulers in
@@ -73,6 +71,7 @@ class BaseDiffusionModel(BaseNetwork):
     def __init__(self, 
                  scheduler: str,
                  num_steps: int,
+                 data_multiplier: float=1,
                  **kwargs) -> pl.LightningModule:
         
         # Initialize variables
@@ -80,6 +79,7 @@ class BaseDiffusionModel(BaseNetwork):
         self.scheduler = scheduler
         self.num_steps = num_steps
         self.diffusion_constants = DiffusionConstants(self.num_steps, scheduler=scheduler)
+        self.data_multiplier = data_multiplier
         
         
     @abstractmethod
@@ -154,14 +154,24 @@ class BaseDiffusionModel(BaseNetwork):
         """
         
         multiplied_noisy_input = self.data_multiplier * noisy_input
-        multiplied_conditionals = [cond * self.data_multiplier for cond in conditionals]
+        if conditionals is not None:
+            multiplied_conditionals = [cond * self.data_multiplier for cond in conditionals]
+        else:
+            multiplied_conditionals = None
         
         running_slice = multiplied_noisy_input.clone()
         batch_size = noisy_input.shape[0]
         for time_step in reversed(range(self.num_steps)):
 
+            # If using the denoise method, we don't want to use the data multiplier again.
+            temp = self.data_multiplier
+            self.data_multiplier = 1.0
+
             time_input = torch.tensor([time_step for _ in range(batch_size)]).to(self.device)
             running_slice = self.sample_timestep(running_slice, time_input, multiplied_conditionals)
+            
+            # Returning the data multiplier to its original value
+            self.data_multiplier = temp
             
             if show_process_plots:
                 plt.figure(figsize=(25, 5))

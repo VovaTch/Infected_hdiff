@@ -131,7 +131,8 @@ class DiffusionViT(BaseDiffusionModel):
         """
         Forward method starts with x: BS x C x W, t: BS
         """
-
+        
+        x *= self.data_multiplier
         
         # Transpose and divide the input into chunks
         x = self._patchify(x) # BS x bl x C*W/bl
@@ -178,6 +179,8 @@ class DiffusionViT(BaseDiffusionModel):
         x = self.fc_out(x[:, :num_patches, :]) # BS x bl x C*W/bl
         x = self.adaptive_layer_norm(x.transpose(1, 2)).transpose(1, 2)
         x = self._depatchify(x + x_saved) # BS x C x W
+        
+        x /= self.data_multiplier
         
         return x
         

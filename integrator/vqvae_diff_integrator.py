@@ -114,4 +114,3 @@ class InfectedHDiffIntegrator(Integrator):
                                                                        self.batch_length if data_flattened.shape[2] >\
                                                                            self.batch_length else data.shape[2]))
         return DataLoader(dataset, self.batch_size)
-        

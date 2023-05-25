@@ -121,18 +121,18 @@ def train_diff(args, level: int=0):
         
     # Load model with loss
     config_path_selection = {0: 'config/denoiser_diff_config.yaml',
-                             1: 'config/diff_lvl1_wavenet_config.yaml',
-                             2: 'config/diff_lvl2_wavenet_config.yaml',
-                             3: 'config/diff_lvl3_wavenet_config.yaml',
-                             4: 'config/diff_lvl4_wavenet_config.yaml'}
+                             1: 'config/diff_lvl1_config.yaml',
+                             2: 'config/diff_lvl2_config.yaml',
+                             3: 'config/diff_lvl3_config.yaml',
+                             4: 'config/diff_lvl4_config.yaml'}
     config_path = config_path_selection[level] if args.config is None else args.config
     cfg = load_cfg_dict(config_path)
     loss = TotalLoss(cfg['loss'])
     data_module = MusicDataModule(**cfg, latent_level=level + 1, dataset_cfg=cfg)
     if args.resume is None:
-        model = WaveNetDiffusion(**cfg, loss_obj=loss)
+        model = DiffusionViT(**cfg, loss_obj=loss)
     else:
-        model = WaveNetDiffusion.load_from_checkpoint(args.resume, **cfg, loss_obj=loss)
+        model = DiffusionViT.load_from_checkpoint(args.resume, **cfg, loss_obj=loss)
         
     # Initialize trainer
     trainer = initialize_trainer(cfg, num_devices=args.num_devices)
