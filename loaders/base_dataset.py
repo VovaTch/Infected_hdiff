@@ -74,6 +74,11 @@ class BaseLatentLoader(Dataset):
             
         del self.prev_vqvae
         
+        self.track_list_unique = []
+        for track_name in self.metadata:
+            if track_name[0] not in self.track_list_unique:
+                self.track_list_unique.append(track_name[0])
+        
     @torch.no_grad()
     def _create_latents(self):
         """
@@ -149,7 +154,8 @@ class BaseLatentLoader(Dataset):
         else:
             raise NotImplemented('Currently this dataset only functions with preloading')
             
-        batch = {'music slice': slice.to(self.device), 'track name': track_name[0]}
+        batch = {'music slice': slice.to(self.device), 'track name': track_name[0], 
+                 'track index': torch.tensor(self.track_list_unique.index(track_name[0])).int()}
         if self.generative:
             
             if idx == 0:

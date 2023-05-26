@@ -4,7 +4,7 @@ import sys
 from models.multi_level_vqvae import MultiLvlVQVariationalAutoEncoder
 from models.transformer_vqvae import TransformerVQVAE
 from models.unet_denoiser import WaveUNet_Denoiser
-from models.diffusion_vit import DiffusionViT
+from models.diffusion_vit import DiffusionViT, DiffusionViTSongCond
 from models.diffusion_unet import WaveNetDiffusion
 from utils.other import load_cfg_dict, initialize_trainer
 from loss import TotalLoss
@@ -130,9 +130,9 @@ def train_diff(args, level: int=0):
     loss = TotalLoss(cfg['loss'])
     data_module = MusicDataModule(**cfg, latent_level=level + 1, dataset_cfg=cfg)
     if args.resume is None:
-        model = DiffusionViT(**cfg, loss_obj=loss)
+        model = DiffusionViTSongCond(**cfg, loss_obj=loss)
     else:
-        model = DiffusionViT.load_from_checkpoint(args.resume, **cfg, loss_obj=loss)
+        model = DiffusionViTSongCond.load_from_checkpoint(args.resume, **cfg, loss_obj=loss)
         
     # Initialize trainer
     trainer = initialize_trainer(cfg, num_devices=args.num_devices)
