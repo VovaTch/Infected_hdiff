@@ -9,7 +9,7 @@ import numpy as np
 SCHEDULER_LIST = ['cosine']
 
 
-def linear_beta_schedule(timesteps, start=0.00001, end=0.0075):
+def linear_beta_schedule(timesteps, start=0.00001, end=0.025):
     return torch.linspace(start, end, timesteps)
 
 

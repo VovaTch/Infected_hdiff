@@ -270,7 +270,6 @@ class DiffusionViTSongCond(DiffusionViT):
             if len(song_idx.size()) == 1:
                 song_idx = song_idx.unsqueeze(1)
         
-        print(song_idx)
         song_emb = self.song_embeddings(song_idx) if song_idx is not None else None
         return self.forward(x, t, cond=song_emb)
             
