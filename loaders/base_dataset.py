@@ -105,7 +105,7 @@ class BaseLatentLoader(Dataset):
                 if latent_collector is not None:
                     data_collector = torch.cat((data_collector, latent_collector.unsqueeze(0)), dim=0)
                     track_name_list.append([current_track_name])
-                latent_collector = torch.zeros(width, 0).to(self.device)
+                latent_collector = torch.zeros((width, 0)).to(self.device)
                 running_idx = 0
                 
             latent_collector = torch.cat((latent_collector, latent.squeeze(0)), dim=1)
@@ -137,6 +137,7 @@ class BaseLatentLoader(Dataset):
         length = self.slice_length
         for dim_change in self.prev_vqvae.channel_dim_change_list:
             length /= dim_change
+            print(length)
         width = self.prev_vqvae.latent_depth
         
         return int(width), int(length)
