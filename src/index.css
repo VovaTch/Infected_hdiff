@@ -23,19 +23,20 @@ body {
     align-items: center;
     justify-content: center;
     min-height: 100vh;
-} 
+}
 
-.App > h1, h2 {
+.App>h1,
+h2 {
     color: var(--dark);
     padding: 1%;
     padding-bottom: 2%;
 }
 
-.App > h1 {
+.App>h1 {
     font-size: 500%;
 }
 
-.App > h2 {
+.App>h2 {
     font-size: 350%;
 }
 
@@ -53,11 +54,11 @@ body {
     margin: auto;
 }
 
-.c-player > * {
+.c-player>* {
     flex: 1 1 auto;
 }
 
-.c-player > h4 {
+.c-player>h4 {
     color: var(--dark);
     font-size: 200%;
     text-transform: uppercase;

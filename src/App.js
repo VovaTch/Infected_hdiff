@@ -1,9 +1,9 @@
-import {useState} from 'react';
+import { useState } from 'react';
 import Player from './components/Player'
 import ProgressBar from './components/GenerationProgressBars';
 
 function App() {
-//Main app function
+  //Main app function
 
   // Set states
   const [soundClip, setSoundClip] = useState({
@@ -16,11 +16,11 @@ function App() {
   function addBar(name, color) {
 
     const passingProps = {
-      barSettings: {name: name, color: color}, 
+      barSettings: { name: name, color: color },
       barCompleted: 55,
       id: Math.floor(Math.random() * 100000),
     };
-    const newProgressBar = <ProgressBar 
+    const newProgressBar = <ProgressBar
       barSettings={passingProps.barSettings}
       barCompleted={passingProps.barCompleted}
       id={passingProps.id}
@@ -35,8 +35,8 @@ function App() {
     <div className="App">
       <h1>Infected HDiff</h1>
       <h2>Hierarchical Music Generation Model</h2>
-      <Player 
-        waveform_img={soundClip.waveform_img_path} 
+      <Player
+        waveform_img={soundClip.waveform_img_path}
         waveform_sound={soundClip.src_path}
         progress_bar_col={progressBarCol}
         addBar={addBar}

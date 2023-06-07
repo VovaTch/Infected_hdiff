@@ -268,9 +268,14 @@ class DiffusionViTSongCond(DiffusionViT):
         
         if song_idx is not None:
             if len(song_idx.size()) == 1:
-                song_idx = song_idx.unsqueeze(1)
+                song_idx = song_idx.unsqueeze(0)
         
         song_emb = self.song_embeddings(song_idx) if song_idx is not None else None
+        
+        if song_idx is not None:
+            if len(song_emb.size()) == 2:
+                song_emb = song_emb.unsqueeze(0)
+            
         return self.forward(x, t, cond=song_emb)
             
         
@@ -387,7 +392,6 @@ class DiffusionViTSongCond(DiffusionViT):
         # Call model (current image - noise prediction)
         noise_pred_unguided = self.forward_cond(x, t)
         if conditional_list is not None:
-            print(conditional_list)
             noise_pred_guided = self.forward_cond(x, t, conditional_list)
             noise_pred = guidance_parameter * noise_pred_guided + (1 - guidance_parameter) * noise_pred_unguided
         else:

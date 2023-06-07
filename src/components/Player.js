@@ -1,4 +1,4 @@
-import React, {useState, useRef, useEffect} from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import PlayerDetails from './PlayerDetails';
 import PlayerControls from './PlayerControls';
 
@@ -32,16 +32,16 @@ function Player(props) {
   return (
     <div className="c-player">
 
-        <audio src={props.waveform_sound} ref={audioEl}></audio>
-        <h4>Playing the music sample</h4>
-        <PlayerDetails waveform_img={props.waveform_img} />
-        <PlayerControls  
-          isPlaying={isPlaying}
-          setIsPlaying={setIsPlaying}
-          setCurrentModel={setCurrentModel}
-          createFirstClick={setFirstClick}
-        />
-        
+      <audio src={props.waveform_sound} ref={audioEl}></audio>
+      <h4>Playing the music sample</h4>
+      <PlayerDetails waveform_img={props.waveform_img} />
+      <PlayerControls
+        isPlaying={isPlaying}
+        setIsPlaying={setIsPlaying}
+        setCurrentModel={setCurrentModel}
+        createFirstClick={setFirstClick}
+      />
+
     </div>
   )
 }

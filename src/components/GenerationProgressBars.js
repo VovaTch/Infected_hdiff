@@ -1,4 +1,4 @@
-import React, {useState} from "react";
+import React, { useState } from "react";
 
 const ProgressBar = (props) => {
 
@@ -13,7 +13,7 @@ const ProgressBar = (props) => {
   const fillerStyle = {
     backgroundColor: barSettings.color,
     width: `${barCompleted}%`,
-  } 
+  }
 
   return (
     <div className="progress-bar--box">
