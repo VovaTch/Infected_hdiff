@@ -387,6 +387,7 @@ class DiffusionViTSongCond(DiffusionViT):
         # Call model (current image - noise prediction)
         noise_pred_unguided = self.forward_cond(x, t)
         if conditional_list is not None:
+            print(conditional_list)
             noise_pred_guided = self.forward_cond(x, t, conditional_list)
             noise_pred = guidance_parameter * noise_pred_guided + (1 - guidance_parameter) * noise_pred_unguided
         else:
@@ -444,7 +445,12 @@ class DiffusionViTSongCond(DiffusionViT):
             self.data_multiplier = 1.0
 
             time_input = torch.tensor([time_step for _ in range(batch_size)]).to(self.device)
-            step_conditionals = torch.tensor([song_idx for song_idx, activation_idx in conditionals.items() if activation_idx >= time_step])
+            if conditionals is not None:
+                step_conditionals = torch.tensor([song_idx for song_idx, activation_idx in conditionals.items() 
+                                                  if activation_idx >= time_step]).to(noisy_input.device)
+            else:
+                step_conditionals = None
+                
             running_slice = self.sample_timestep(running_slice, time_input, step_conditionals, guidance_parameter)
             
             # Returning the data multiplier to its original value

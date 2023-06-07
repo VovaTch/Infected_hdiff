@@ -34,7 +34,7 @@ learning:
   eval_split_factor: 0.0
   preload_data_file_path: 'data/music_samples/002-datatensor.pt'
   preload_metadata_file_path: 'data/music_samples/002-metadata.pkl'
-  slice_length: 32768
+  slice_length: 4096
 
 
 loss:

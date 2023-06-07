@@ -25,7 +25,7 @@ learning:
   batch_size: 4
   learning_rate: 0.0002
   weight_decay: 0.0
-  epochs: 4000
+  epochs: 30000
   gradient_clip: 0.5
   beta_ema: 0.9999
   monitored_loss: Validation total loss
@@ -35,7 +35,7 @@ learning:
   eval_split_factor: 0.0
   preload_data_file_path: 'data/music_samples/003-datatensor.pt'
   preload_metadata_file_path: 'data/music_samples/003-metadata.pkl'
-  slice_length: 32768
+  slice_length: 4096
 
 
 loss:

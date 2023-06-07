@@ -8,7 +8,7 @@ model:
   num_blocks: 6
   num_heads: 8
   dropout: 0.0
-  num_steps: 300
+  num_steps: 50
   scheduler: linear
   amp: False
   collection_parameter: 1
@@ -26,7 +26,7 @@ learning:
   dataset_path: data/music_samples/
   scheduler_type: 'none'
   dataset_name: 'music_slice_dataset'
-  eval_split_factor: 0.01
+  eval_split_factor: 0.0
   preload_data_file_path: 'data/music_samples/002-datatensor_gen.pt'
   preload_metadata_file_path: 'data/music_samples/002-metadata_gen.pkl'
   slice_length: 4096
