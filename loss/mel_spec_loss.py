@@ -8,15 +8,16 @@ from .base import LossBase, BASE_LOSS_TYPES
 
 class MelSpecLoss(LossBase):
     """
-    This loss is a reconstruction loss of a mel spectrogram, convert the inputs into a spectrogram and compute reconstruction loss
+    This loss is a reconstruction loss of a mel spectrogram, convert the inputs into a spectrogram and
+    compute reconstruction loss
     """
 
     def __init__(self, loss_cfg: Dict):
         super().__init__(loss_cfg)
 
         assert loss_cfg["base_loss_type"] in BASE_LOSS_TYPES, (
-            f"The base loss type"
-            " must be one of: {[loss_type for loss_type in BASE_LOSS_TYPES]}"
+            "The base loss type"
+            f" must be one of: {[loss_type for loss_type in BASE_LOSS_TYPES]}"
         )
         self.base_loss_type = BASE_LOSS_TYPES[loss_cfg["base_loss_type"]]
         self.mel_spec = MelSpectrogram(**loss_cfg["melspec_params"])

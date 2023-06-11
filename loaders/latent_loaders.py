@@ -4,8 +4,9 @@ from .base_dataset import BaseLatentLoader
 
 class Lvl2InputDataset(BaseLatentLoader):
     """
-    This class takes the encoded level 1 vqvae latent vectors and collects them all in a .pt file, to be loaded for the level 2 training.
-    The level 2 vqvae training will take 8 latents concatenated together as a sample.
+    This class takes the encoded level 1 vqvae latent vectors and collects them all in a .pt file,
+    to be loaded for the level 2 training. The level 2 vqvae training will take 8 latents concatenated
+    ogether as a sample.
     """
 
     def __init__(
@@ -35,8 +36,9 @@ class Lvl2InputDataset(BaseLatentLoader):
 
 class Lvl3InputDataset(BaseLatentLoader):
     """
-    This class takes the encoded level 2 vqvae latent vectors and collects them all in a .pt file, to be loaded for the level 2 training.
-    The level 3 vqvae training will take 8 latents concatenated together as a sample.
+    This class takes the encoded level 2 vqvae latent vectors and collects them all in a .pt file,
+    to be loaded for the level 2 training. The level 3 vqvae training will take 8
+    latents concatenated together as a sample.
     """
 
     def __init__(
@@ -66,8 +68,9 @@ class Lvl3InputDataset(BaseLatentLoader):
 
 class Lvl4InputDataset(BaseLatentLoader):
     """
-    This class takes the encoded level 3 vqvae latent vectors and collects them all in a .pt file, to be loaded for the level 3 training.
-    The level 4 vqvae training will take 8 latents concatenated together as a sample.
+    This class takes the encoded level 3 vqvae latent vectors and collects them all in a .pt file,
+    to be loaded for the level 3 training. The level 4 vqvae training will take 8
+    latents concatenated together as a sample.
     """
 
     def __init__(
@@ -97,8 +100,8 @@ class Lvl4InputDataset(BaseLatentLoader):
 
 class Lvl5InputDataset(BaseLatentLoader):
     """
-    This class takes the encoded level 4 vqvae latent vectors and collects them all in a .pt file, to be loaded for the highest level diffusion
-    model to be trained.
+    This class takes the encoded level 4 vqvae latent vectors and collects them all in a .pt file,
+    to be loaded for the highest level diffusion model to be trained.
     """
 
     def __init__(

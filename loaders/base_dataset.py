@@ -161,7 +161,7 @@ class BaseLatentLoader(Dataset):
             slice = self.processed_slice_data[idx]
             track_name = self.metadata[idx]
         else:
-            raise NotImplemented(
+            raise NotImplementedError(
                 "Currently this dataset only functions with preloading"
             )
 

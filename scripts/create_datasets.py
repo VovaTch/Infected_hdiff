@@ -53,7 +53,7 @@ def main(args):
                 prev_dataset = None
                 prev_vqvae = None
 
-        except:
+        except ValueError:
             print(f"Could not load previous dataset and previous vqvae level {idx - 1}")
             cfg_prev = None
             prev_dataset = None

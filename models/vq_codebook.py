@@ -5,7 +5,8 @@ import numpy as np
 
 class VQCodebook(nn.Module):
     """
-    Parameter holder for the embeddings for the VQVAE. This also references to the function that computes gradients past the quantizer.
+    Parameter holder for the embeddings for the VQVAE. This also references to the function that computes
+    gradients past the quantizer.
     """
 
     def __init__(self, token_dim, num_tokens: int = 512, usage_threshold=1e-9):
@@ -27,7 +28,8 @@ class VQCodebook(nn.Module):
 
         return z_q, indices
 
-    # Everything below is the random restart code to try to use the entire codebook and avoid codebook collapse according to OpenAI's Jukebox.
+    # Everything below is the random restart code to try to use the entire codebook and avoid codebook
+    # collapse according to OpenAI's Jukebox.
     def update_usage(self, min_enc):
         self.usage[min_enc.flatten()] = (
             self.usage[min_enc.flatten()] + 1
@@ -35,7 +37,7 @@ class VQCodebook(nn.Module):
         self.usage /= 2  # decay all codes usage
 
     def reset_usage(self):
-        self.usage.zero_()  #  reset usage between epochs
+        self.usage.zero_()  # reset usage between epochs
 
     def random_restart(self):
         #  randomly restart all dead codes below threshold with random code in codebook
@@ -53,7 +55,8 @@ class VQCodebookFunc(torch.autograd.Function):
     @staticmethod
     def forward(ctx, x_in: torch.Tensor, embedding_weights: torch.Tensor):
         """
-        Autograd function for the index selection. According to the VQ-VAE paper, the gradient for x_in should be a mirror, to the x_out.
+        Autograd function for the index selection. According to the VQ-VAE paper, the gradient for
+        x_in should be a mirror, to the x_out.
 
         Args:
             x_in (torch.Tensor): Input, should be a BS x emb_size x codes (16 x 147)

@@ -176,6 +176,6 @@ if __name__ == "__main__":
     print(sliced_piece.size())
 
     with tempfile.TemporaryDirectory() as tempdir:
-        path = f"save_example_default.mp3"
+        path = "save_example_default.mp3"
         torchaudio.save(path, sliced_piece, 44100, format="mp3")
         inspect_file(path)

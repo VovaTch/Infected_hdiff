@@ -118,7 +118,7 @@ def train_denoiser(args):
     # If running on Colab
     if IN_COLAB:
         print("Saving checkpoint in Google Drive:")
-        save_path = f"/content/drive/MyDrive/net_weights/IHDF/denoiser.ckpt"
+        save_path = "/content/drive/MyDrive/net_weights/IHDF/denoiser.ckpt"
         trainer.save_checkpoint(save_path, weights_only=True)
         print(f"Saved network weights in {save_path}.")
 
@@ -155,7 +155,7 @@ def train_diff(args, level: int = 0):
     # If running on Colab
     if IN_COLAB:
         print("Saving checkpoint in Google Drive:")
-        save_path = f"/content/drive/MyDrive/net_weights/IHDF/denoiser_diff.ckpt"
+        save_path = "/content/drive/MyDrive/net_weights/IHDF/denoiser_diff.ckpt"
         trainer.save_checkpoint(save_path, weights_only=True)
         print(f"Saved network weights in {save_path}.")
 
