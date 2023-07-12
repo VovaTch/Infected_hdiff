@@ -45,9 +45,13 @@ def main(args):
             if idx > 1:
                 cfg_prev = load_cfg_dict(cfgs_vqvae[idx - 1])
                 prev_dataset = datasets[idx - 1](**cfg_prev, device=device)
-                prev_vqvae = MultiLvlVQVariationalAutoEncoder.load_from_checkpoint(
-                    vqvae_weights[idx - 1], **cfg_prev, strict=False
-                ).to(device)
+                prev_vqvae = (
+                    MultiLvlVQVariationalAutoEncoder.load_from_checkpoint(
+                        vqvae_weights[idx - 1], **cfg_prev, strict=False
+                    )
+                    .to(device)
+                    .eval()
+                )
             else:
                 cfg_prev = None
                 prev_dataset = None

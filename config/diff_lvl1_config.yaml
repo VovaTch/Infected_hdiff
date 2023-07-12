@@ -12,7 +12,7 @@ model:
   scheduler: linear
   amp: False
   collection_parameter: 1
-  data_multiplier: 1
+  data_multiplier: 0.5
 
 
 learning:

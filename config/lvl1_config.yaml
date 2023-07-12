@@ -5,7 +5,7 @@ model:
   hidden_size: 16
   latent_width: 128
   latent_depth: 8
-  vocabulary_size: 8192
+  vocabulary_size: 512
   bottleneck_kernel_size: 0
   channel_dim_change_list: [2, 2, 2, 2, 2, 2]
   amp: False
@@ -22,7 +22,7 @@ model:
 
 learning:
   batch_size: 4
-  learning_rate: 0.0002
+  learning_rate: 0.00002
   weight_decay: 0.0
   epochs: 4000
   gradient_clip: 0.5

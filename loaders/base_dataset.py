@@ -105,7 +105,7 @@ class BaseLatentLoader(Dataset):
                 batch["track name"][0],
             )
             latent = self.prev_vqvae.encode(music_slice)
-            latent = self.prev_vqvae.vq_module(latent)["v_q"]
+            latent = self.prev_vqvae.vq_module(latent, extract_losses=False)["v_q"]
 
             # If the collector is filled, reset the collector
             if running_idx % self.collection_parameter == 0:

@@ -5,7 +5,7 @@ model:
   hidden_size: 64
   latent_width: 128
   latent_depth: 8
-  vocabulary_size: 8192
+  vocabulary_size: 64
   bottleneck_kernel_size: 0
   channel_dim_change_list: [2, 2, 2]
   amp: False
