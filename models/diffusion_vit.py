@@ -69,7 +69,6 @@ def get_emb(sin_inp: torch.Tensor) -> torch.Tensor:
     Returns:
         torch.Tensor: Positional embedding output
     """
-
     emb = torch.stack((sin_inp.sin(), sin_inp.cos()), dim=-1)
     return torch.flatten(emb, -2, -1)
 
@@ -192,7 +191,8 @@ class DiffusionViT(BaseDiffusionModel):
 
     def _depatchify(self, x_reshaped: torch.Tensor):
         """
-        After patching, this function reverses the patching process in _patchify. Assumes x_reshaped is BS x C * W / bl x bl
+        After patching, this function reverses the patching process in _patchify.
+        Assumes x_reshaped is BS x C * W / bl x bl
         """
 
         # Create the origin tensor shape

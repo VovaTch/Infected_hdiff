@@ -20,8 +20,8 @@ class Res1DBlock(nn.Module):
         activation_type: str = "gelu",
     ):
         """
-        1D Conv res block, similar to Jukebox paper. This is a try because the transformer one didn't regress to the wanted waveform,
-        and the 1d vqvae doesn't reconstruct the sound well enough.
+        1D Conv res block, similar to Jukebox paper. This is a try because the transformer one didn't
+        regress to the wanted waveform, and the 1d vqvae doesn't reconstruct the sound well enough.
         """
 
         super().__init__()
