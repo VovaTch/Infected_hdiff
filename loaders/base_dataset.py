@@ -41,7 +41,11 @@ class BaseLatentLoader(Dataset):
             # Load pt file if exists
             if os.path.isfile(preload_file_path):
                 print(f"Loading file {preload_file_path}...")
-                self.processed_slice_data = torch.load(preload_file_path)
+                data_dict = torch.load(preload_file_path)
+                self.processed_slice_data, self.processed_index_data = (
+                    data_dict["slices"],
+                    data_dict["indices"],
+                )
                 print(f"Music file {preload_file_path} is loaded.")
 
             # Save pt file if it doesn't
@@ -49,24 +53,33 @@ class BaseLatentLoader(Dataset):
                 assert (
                     prev_vqvae is not None and prev_dataset is not None
                 ), "If no dataset file exists, must have vqvae and dataset."
-                self.processed_slice_data, self.metadata = self._create_latents()
-                self.processed_slice_data = self.processed_slice_data.to(device)
-                torch.save(self.processed_slice_data, preload_file_path)
+                (
+                    self.processed_slice_data,
+                    self.metadata,
+                    self.processed_index_data,
+                ) = self._create_latents()
+                data_dict = {
+                    "slices": self.processed_slice_data.to(device),
+                    "indices": self.processed_index_data.to(device),
+                }
+                torch.save(data_dict, preload_file_path)
                 print(f"Saved music file at {preload_file_path}")
 
             # Load pickle file if exists
             if os.path.isfile(preload_metadata_file_path):
                 print(f"Loading file {preload_metadata_file_path}...")
                 with open(preload_metadata_file_path, "rb") as f:
-                    self.metadata = pickle.load(f)
+                    metadata_dict = pickle.load(f)
+                self.metadata = metadata_dict["track names"]
                 print(f"Music file {preload_metadata_file_path} is loaded.")
 
             # Save pickle file if not
             else:
                 if self.metadata is None:
-                    _, self.metadata = self._create_latents()
+                    _, self.metadata, _ = self._create_latents()
                 with open(preload_metadata_file_path, "wb") as f:
-                    pickle.dump(self.metadata, f)
+                    data_dict = {"track names": self.metadata}
+                    pickle.dump(data_dict, f)
                 print(f"Saved music file at {preload_metadata_file_path}")
 
         else:
@@ -91,11 +104,15 @@ class BaseLatentLoader(Dataset):
         data_collector = torch.zeros((0, width, length * self.collection_parameter)).to(
             self.device
         )
+        index_collector = torch.zeros((0, length * self.collection_parameter)).to(
+            self.device
+        )
         loader = DataLoader(self.prev_dataset, batch_size=1)
 
         # Initialize running variables
         prev_track_name = None
         latent_collector = None
+        latent_indices = None
         running_idx = 0
         track_name_list = []
 
@@ -105,7 +122,12 @@ class BaseLatentLoader(Dataset):
                 batch["track name"][0],
             )
             latent = self.prev_vqvae.encode(music_slice)
-            latent = self.prev_vqvae.vq_module(latent, extract_losses=False)["v_q"]
+            latent, indices = (
+                self.prev_vqvae.vq_module(latent, extract_losses=False)["v_q"],
+                self.prev_vqvae.vq_module(latent, extract_losses=False)[
+                    "indices"
+                ].squeeze(-1),
+            )
 
             # If the collector is filled, reset the collector
             if running_idx % self.collection_parameter == 0:
@@ -113,22 +135,32 @@ class BaseLatentLoader(Dataset):
                     data_collector = torch.cat(
                         (data_collector, latent_collector.unsqueeze(0)), dim=0
                     )
+                    index_collector = torch.cat(
+                        (index_collector, latent_indices.unsqueeze(0)), dim=0
+                    )
                     track_name_list.append([current_track_name])
                 latent_collector = torch.zeros((width, 0)).to(self.device)
+                latent_indices = torch.zeros((0)).to(self.device)
                 running_idx = 0
 
             latent_collector = torch.cat((latent_collector, latent.squeeze(0)), dim=1)
+            latent_indices = torch.cat((latent_indices, indices.squeeze(0)), dim=0)
             running_idx += 1
 
             # If the track switches, pad and reset the latent collector
             if prev_track_name is not None and current_track_name != prev_track_name:
                 padding = length * self.collection_parameter - latent_collector.shape[1]
                 latent_collector = F.pad(latent_collector, (0, padding))
+                latent_indices = F.pad(latent_indices, (0, padding))
                 data_collector = torch.cat(
                     (data_collector, latent_collector.unsqueeze(0)), dim=0
                 )
+                index_collector = torch.cat(
+                    (index_collector, latent_indices.unsqueeze(0)), dim=0
+                )
                 track_name_list.append([current_track_name])
                 latent_collector = None
+                latent_indices = None
                 running_idx = 0
 
             prev_track_name = current_track_name
@@ -137,12 +169,16 @@ class BaseLatentLoader(Dataset):
         if latent_collector.shape[1] > 0:
             padding = length * self.collection_parameter - latent_collector.shape[1]
             latent_collector = F.pad(latent_collector, (0, padding))
+            latent_indices = F.pad(latent_indices, (0, padding))
             data_collector = torch.cat(
                 (data_collector, latent_collector.unsqueeze(0)), dim=0
             )
+            index_collector = torch.cat(
+                (index_collector, latent_indices.unsqueeze(0)), dim=0
+            )
             track_name_list.append([current_track_name])
 
-        return data_collector, track_name_list
+        return data_collector, track_name_list, index_collector
 
     def _compute_latent_dims(self):
         length = self.slice_length
@@ -159,6 +195,7 @@ class BaseLatentLoader(Dataset):
     def __getitem__(self, idx):
         if self.preload:
             slice = self.processed_slice_data[idx]
+            latent_indices = self.processed_index_data[idx]
             track_name = self.metadata[idx]
         else:
             raise NotImplementedError(
@@ -171,22 +208,31 @@ class BaseLatentLoader(Dataset):
             "track index": torch.tensor(self.track_list_unique.index(track_name[0]))
             .int()
             .unsqueeze(0),
+            "latent indices": latent_indices.to(self.device),
         }
         if self.generative:
             if idx == 0:
                 back_cond_slice = torch.zeros_like(slice.to(self.device))
+                back_cond_indices = -1
             else:
                 back_cond_slice = self.processed_slice_data[idx - 1].to(self.device)
+                back_cond_indices = self.processed_index_data[idx - 1].to(self.device)
 
             if idx == self.__len__() - 1:
                 forward_cond_slice = torch.zeros_like(slice.to(self.device))
+                forward_cond_indices = -1
             else:
                 forward_cond_slice = self.processed_slice_data[idx + 1].to(self.device)
+                forward_cond_indices = self.processed_index_data[idx - 1].to(
+                    self.device
+                )
 
             batch.update(
                 {
                     "back conditional slice": back_cond_slice,
+                    "back conditional indices": back_cond_indices,
                     "forward conditional slice": forward_cond_slice,
+                    "forward conditional indices": forward_cond_indices,
                 }
             )
 

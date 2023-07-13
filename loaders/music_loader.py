@@ -59,36 +59,48 @@ class MP3SliceDataset(Dataset):
             # Load pt file if exists
             if os.path.isfile(preload_data_file_path):
                 print(f"Loading file {preload_data_file_path}...")
-                self.processed_slice_data = torch.load(preload_data_file_path)
+                data_dict = torch.load(preload_data_file_path)
+                self.processed_slice_data = data_dict["slices"]
                 print(f"Music file {preload_data_file_path} is loaded.")
 
             # Save pt file if not
             else:
-                self.processed_slice_data, self.metadata = self._create_music_slices(
-                    self.file_list
-                )
+                (
+                    self.processed_slice_data,
+                    self.metadata,
+                    self.time_stamps,
+                ) = self._create_music_slices(self.file_list)
                 self.processed_slice_data = self.processed_slice_data.squeeze(0).to(
                     device
                 )
-                torch.save(self.processed_slice_data, preload_data_file_path)
+                data_dict = {"slices": self.processed_slice_data}
+                torch.save(data_dict, preload_data_file_path)
                 print(f"Saved music file at {preload_data_file_path}")
 
             # Load pickle file if exists
             if os.path.isfile(preload_metadata_file_path):
                 print(f"Loading file {preload_metadata_file_path}...")
                 with open(preload_metadata_file_path, "rb") as f:
-                    self.metadata = pickle.load(f)
+                    data_dict = pickle.load(f)
+                    self.metadata, self.time_stamps = (
+                        data_dict["track names"],
+                        data_dict["time stamps"],
+                    )
                 print(f"Music file {preload_metadata_file_path} is loaded.")
 
             # Save pickle file if not
             else:
                 if self.metadata is None:
-                    _, self.metadata = (
+                    _, self.metadata, self.time_stamps = (
                         self._create_music_slices(self.file_list).squeeze(0).to(device)
                     )
                 with open(preload_metadata_file_path, "wb") as f:
-                    pickle.dump(self.metadata, f)
-                print(f"Saved music file at {preload_metadata_file_path}")
+                    data_dict = {
+                        "track names": self.metadata,
+                        "time stamps": self.time_stamps,
+                    }
+                    pickle.dump(data_dict, f)
+                print(f"Saved metadata file at {preload_metadata_file_path}")
 
     def _create_music_slices(self, file_list: List[str]):
         """
@@ -97,13 +109,15 @@ class MP3SliceDataset(Dataset):
 
         total_slices = torch.zeros((1, 0, self.total_samples_per_slice))
         track_name_list = []
+        time_stamps_total = []
 
         for file in tqdm.tqdm(file_list, desc="Loading music slices..."):
-            slices, track_name = self._load_slices_from_track(file)
+            slices, track_name, time_stamps = self._load_slices_from_track(file)
             track_name_list += track_name
             total_slices = torch.cat((total_slices, slices), dim=1)
+            time_stamps_total += time_stamps
 
-        return total_slices, track_name_list
+        return total_slices, track_name_list, time_stamps_total
 
     def _load_slices_from_track(self, file: str):
         long_data, sr = torchaudio.load(file, format="mp3")
@@ -112,8 +126,9 @@ class MP3SliceDataset(Dataset):
         long_data = self._right_pad_if_necessary(long_data)
         slices = long_data.view((1, -1, self.total_samples_per_slice))
         track_name_list = [[file] for _ in range(slices.shape[1])]
+        time_stamp_list = [self.slice_time * idx for idx in range(slices.shape[1])]
 
-        return slices, track_name_list
+        return slices, track_name_list, time_stamp_list
 
     def _resample_if_necessary(self, signal: torch.Tensor, sr: int):
         if sr != self.sample_rate:
@@ -141,9 +156,10 @@ class MP3SliceDataset(Dataset):
         if self.preload:
             slice = self.processed_slice_data[idx]
             track_name = self.metadata[idx]
+            time_stamp = self.time_stamps[idx]
         else:
             file_choice = random.choice(self.file_list)
-            slices, track_name_repeated = self._load_slices_from_track(
+            slices, track_name_repeated, time_stamp = self._load_slices_from_track(
                 file_choice
             ).squeeze(0)
             slice_choice = random.choice(list(range(0, slices.shape[0])))
@@ -153,6 +169,7 @@ class MP3SliceDataset(Dataset):
         return {
             "music slice": slice.unsqueeze(0).to(self.device),
             "track name": track_name[0],
+            "time stamp": time_stamp,
         }
 
     def __len__(self):
