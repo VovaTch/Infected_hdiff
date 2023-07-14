@@ -12,7 +12,7 @@ model:
   scheduler: cosine
   amp: False
   collection_parameter: 1
-  data_multiplier: 0.5
+  data_multiplier: 1.0
 
 
 learning:

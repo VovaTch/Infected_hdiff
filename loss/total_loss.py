@@ -6,6 +6,7 @@ import torch.nn as nn
 from .mel_spec_loss import MelSpecLoss
 from .rec_loss import RecLoss, NoisePredLoss
 from .codebook_losses import AlignLoss, CommitLoss
+from .lm_cross_entropy_loss import DecoderCrossEntropy
 
 
 LOSS_TYPES = {
@@ -14,6 +15,7 @@ LOSS_TYPES = {
     "alignment": AlignLoss,
     "commitment": CommitLoss,
     "noise": NoisePredLoss,
+    "decoder_ce": DecoderCrossEntropy,
 }
 
 
