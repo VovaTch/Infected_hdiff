@@ -1,17 +1,22 @@
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 import pytorch_lightning as pl
+from pytorch_lightning.utilities.types import STEP_OUTPUT
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+import tqdm
 
 from loss import TotalLoss
 from .base import BaseNetwork
 from utils.other import SinusoidalPositionEmbeddings
+from .multi_level_vqvae import VQ1D
 
 
 class TransformerAutoregressor(BaseNetwork):
     def __init__(
         self,
+        codebook: VQ1D,
         num_heads: int = 4,
         num_modules: int = 6,
         hidden_size: int = 256,
@@ -32,6 +37,7 @@ class TransformerAutoregressor(BaseNetwork):
         self.codebook_size = codebook_size
         self.masking_prob = masking_prob
         self.loss_obj = loss_obj
+        self.codebook = codebook
 
         # Initialize decoder-only transformer
         self.decoder_layer = nn.TransformerDecoderLayer(
@@ -94,7 +100,7 @@ class TransformerAutoregressor(BaseNetwork):
 
         return output
 
-    def training_step(self, batch, batch_idx):
+    def _step(self, batch: torch.Tensor, batch_idx: torch.Tensor):
         assert self.loss_obj is not None, "For training, there must be a loss object."
 
         slices, indices, track_idx = (
@@ -115,4 +121,38 @@ class TransformerAutoregressor(BaseNetwork):
 
         outputs.update(self.loss_obj(outputs, targets))
 
+        return outputs
+
+    def training_step(self, batch: torch.Tensor, batch_idx: torch.Tensor):
+        outputs = self._step(batch, batch_idx)
+        for key, value in outputs.items():
+            if "loss" in key:
+                self.log(key, value)
         return outputs["total_loss"]
+
+    def validation_step(self, batch: torch.Tensor, batch_idx: torch.Tensor):
+        outputs = self._step(batch, batch_idx)
+        for key, value in outputs.items():
+            if "loss" in key:
+                self.log(key + "_val", value)
+
+    def generate_sequence(
+        self,
+        preliminary_seq: torch.Tensor,
+        temperature: float = 1.0,
+        song_idx: torch.Tensor = None,
+    ) -> Dict[str, torch.Tensor]:
+        seq_length = preliminary_seq.shape[1]
+        current_sequence = preliminary_seq[:, 0, :].copy()
+        for _ in tqdm.tqdm(range(seq_length - 1), "Creating latent sequence..."):
+            output_logits = self(current_sequence, song_idx=song_idx)[:, -1]
+            sampled_codes = self._sample_codes(output_logits, temperature)
+            current_sequence = torch.cat((current_sequence, sampled_codes), dim=1)
+
+        return {"sequence": current_sequence}
+
+    def _sample_codes(self, logits: torch.Tensor, temperature: float) -> torch.Tensor:
+        categorical_dist = torch.distributions.Categorical(logits=logits / temperature)
+        samples = categorical_dist.sample()
+        sampled_codes = self.codebook.vq_codebook.code_embedding[samples]
+        return sampled_codes
