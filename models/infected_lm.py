@@ -139,15 +139,24 @@ class TransformerAutoregressor(BaseNetwork):
     def generate_sequence(
         self,
         preliminary_seq: torch.Tensor,
+        preliminary_mask: torch.Tensor = None,
         temperature: float = 1.0,
         song_idx: torch.Tensor = None,
     ) -> Dict[str, torch.Tensor]:
         seq_length = preliminary_seq.shape[1]
-        current_sequence = preliminary_seq[:, 0, :].copy()
-        for _ in tqdm.tqdm(range(seq_length - 1), "Creating latent sequence..."):
-            output_logits = self(current_sequence, song_idx=song_idx)[:, -1]
-            sampled_codes = self._sample_codes(output_logits, temperature)
-            current_sequence = torch.cat((current_sequence, sampled_codes), dim=1)
+        current_sequence = preliminary_seq.clone()
+        current_mask = (
+            preliminary_mask.clone() if preliminary_mask is not None else None
+        )
+        for seq_idx in tqdm.tqdm(range(seq_length - 1), "Creating latent sequence..."):
+            if current_mask is None or not current_mask[0, seq_idx]:
+                output_logits = self(
+                    current_sequence, song_idx=song_idx, mask=current_mask
+                )[:, seq_idx + 1]
+                sampled_codes = self._sample_codes(output_logits, temperature)
+                current_sequence[:, seq_idx + 1, :] = sampled_codes
+            if current_mask is not None:
+                current_mask[:, seq_idx + 1] = True
 
         return {"sequence": current_sequence}
 
