@@ -51,7 +51,7 @@
             ]
         },
         {
-            "name": "Python: Train Denoiser",
+            "name": "Python: Train Sequential Generator",
             "type": "python",
             "request": "launch",
             "module": "scripts.train",
@@ -61,7 +61,7 @@
                 "-d",
                 "1",
                 "-a",
-                "denoiser"
+                "lvl1seq"
             ]
         },
         {

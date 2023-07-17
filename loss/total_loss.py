@@ -15,7 +15,7 @@ LOSS_TYPES = {
     "alignment": AlignLoss,
     "commitment": CommitLoss,
     "noise": NoisePredLoss,
-    "decoder_ce": DecoderCrossEntropy,
+    "decoderCE": DecoderCrossEntropy,
 }
 
 

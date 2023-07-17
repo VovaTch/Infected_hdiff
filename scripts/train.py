@@ -1,11 +1,13 @@
 import argparse
 import sys
+import copy
 
 from models.multi_level_vqvae import MultiLvlVQVariationalAutoEncoder
 from models.transformer_vqvae import TransformerVQVAE
 from models.unet_denoiser import WaveUNet_Denoiser
 from models.diffusion_vit import DiffusionViT, DiffusionViTSongCond
 from models.diffusion_unet import WaveNetDiffusion
+from models.infected_lm import TransformerAutoregressor
 from utils.other import load_cfg_dict, initialize_trainer
 from loss import TotalLoss
 from loaders import MusicDataModule
@@ -155,6 +157,54 @@ def train_diff(args, level: int = 0):
     # If running on Colab
     if IN_COLAB:
         print("Saving checkpoint in Google Drive:")
+        save_path = f"/content/drive/MyDrive/net_weights/IHDF/lvl{level}_vqvae.ckpt"
+        trainer.save_checkpoint(save_path, weights_only=True)
+        print(f"Saved network weights in {save_path}.")
+
+
+def train_seq(args, level: int = 1):
+    if IN_COLAB:
+        print("Running on Google Colab.")
+
+    # Load model with loss
+    config_path_selection = {
+        1: "config/seq_lvl1_config.yaml",
+        2: "config/seq_lvl2_config.yaml",
+        3: "config/seq_lvl3_config.yaml",
+        4: "config/seq_lvl4_config.yaml",
+    }
+
+    config_path = config_path_selection[level] if args.config is None else args.config
+    cfg = load_cfg_dict(config_path)
+    cfg_vqvae = load_cfg_dict(cfg["vqvae_config"])
+    loss = TotalLoss(cfg["loss"])
+    data_module = MusicDataModule(**cfg, latent_level=level + 1, dataset_cfg=cfg)
+
+    model_vqvae = MultiLvlVQVariationalAutoEncoder.load_from_checkpoint(
+        cfg["weights_path"], **cfg_vqvae
+    )
+    if args.resume is not None:
+        model = TransformerAutoregressor.load_from_checkpoint(
+            args.resume,
+            **cfg,
+            loss_obj=loss,
+            codebook=copy.deepcopy(model_vqvae.vq_module),
+        )
+    else:
+        model = TransformerAutoregressor(
+            **cfg, loss_obj=loss, codebook=copy.deepcopy(model_vqvae.vq_module)
+        )
+    del model_vqvae
+
+    # Initialize trainer
+    trainer = initialize_trainer(cfg, num_devices=args.num_devices)
+
+    # Start training
+    trainer.fit(model, datamodule=data_module)
+
+    # If running on Colab
+    if IN_COLAB:
+        print("Saving checkpoint in Google Drive:")
         save_path = "/content/drive/MyDrive/net_weights/IHDF/denoiser_diff.ckpt"
         trainer.save_checkpoint(save_path, weights_only=True)
         print(f"Saved network weights in {save_path}.")
@@ -187,6 +237,9 @@ def main(args):
     elif choice == "lvl4diff":
         train_diff(args, level=4)
 
+    elif choice == "lvl1seq":
+        train_seq(args, level=1)
+
     elif choice == "denoiser":
         train_denoiser(args)
 
@@ -215,6 +268,7 @@ if __name__ == "__main__":
             "lvl2diff",
             "lvl3diff",
             "lvl4diff",
+            "lvl1seq",
             "lvl1tvqvae",
             "denoiser",
             "denoiser_diff",

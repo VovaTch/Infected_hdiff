@@ -1,4 +1,4 @@
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 import pytorch_lightning as pl
 from pytorch_lightning.utilities.types import STEP_OUTPUT
@@ -21,11 +21,10 @@ class TransformerAutoregressor(BaseNetwork):
         num_modules: int = 6,
         hidden_size: int = 256,
         codebook_size: int = 1024,
-        max_num_songs: int = 100,
         input_channels: int = 8,
         masking_prob: float = 0.25,
         loss_obj: TotalLoss = None,
-        **kwargs
+        **kwargs,
     ) -> pl.LightningModule:
         super().__init__(**kwargs)
 
@@ -47,11 +46,8 @@ class TransformerAutoregressor(BaseNetwork):
             self.decoder_layer, num_layers=num_modules
         )
 
-        # Song embedding
-        self.song_embedding = nn.Embedding(
-            num_embeddings=max_num_songs + 1, embedding_dim=hidden_size
-        )
-        self.song_cond_idx_matching = {}
+        # Empty embedding
+        self.empty_embedding = nn.Parameter(torch.randn((1, input_channels, 512)))
 
         # Positional encoding
         self.positional_encoding = SinusoidalPositionEmbeddings(self.hidden_size)
@@ -67,7 +63,10 @@ class TransformerAutoregressor(BaseNetwork):
         )
 
     def forward(
-        self, x: torch.Tensor, song_idx: torch.Tensor = None, mask: torch.Tensor = None
+        self,
+        x: torch.Tensor,
+        prev_seq: List[torch.Tensor] or torch.Tensor = None,
+        mask: torch.Tensor = None,
     ) -> Dict[str, Any]:
         """
         Forward method; assumes x in the shape of BS x V x in_dim, assumes song idx in the shape of BS x n_songs.
@@ -78,11 +77,36 @@ class TransformerAutoregressor(BaseNetwork):
             song_idx (torch.Tensor, optional): _description_. Defaults to None.
         """
 
-        # If the song idx is empty, input empty embeddings
-        if song_idx is None:
-            song_idx = torch.zeros((x.shape[0], 1)).to(self.device)
+        # If the conditional is empty
+        if prev_seq is None:
+            prev_seq = self.empty_embedding.repeat((x.shape[0], 1, 1))
+            conditional = self.input_fc(prev_seq)
+            positional_emb_idx = torch.arange(0, self.empty_embedding.shape[1]).to(
+                self.device
+            )
+            positional_emb = self.positional_encoding(positional_emb_idx)
+            conditional += positional_emb
 
-        conditional_emb = self.song_embedding(song_idx + 1)
+        # If the conditional is a list
+        elif isinstance(prev_seq, List):
+            conditional = torch.zeros((x.shape[0], 0, x.shape[2])).to(self.device)
+            for ind_seq in prev_seq:
+                ind_cond = self.input_fc(ind_seq)
+                positional_emb_idx = torch.arange(0, ind_seq.shape[1]).to(self.device)
+                positional_emb = self.positional_encoding(positional_emb_idx)
+                ind_cond += positional_emb
+                conditional = torch.cat((conditional, ind_cond), dim=1)
+
+        # If the conditional is a tensor
+        elif isinstance(prev_seq, torch.Tensor):
+            conditional = self.input_fc(prev_seq)
+            positional_emb_idx = torch.arange(0, prev_seq.shape[1]).to(self.device)
+            positional_emb = self.positional_encoding(positional_emb_idx)
+            conditional += positional_emb
+
+        # Else raise an error
+        else:
+            raise Exception(f"Unknown conditional type {type(prev_seq)}")
 
         x = self.input_fc(x)  # BS x V x hs
         positional_emb_idx = torch.arange(0, x.shape[1]).to(self.device)
@@ -90,7 +114,7 @@ class TransformerAutoregressor(BaseNetwork):
         x += positional_emb
 
         # Activate transformer
-        x = self.decoder_stack(x, conditional_emb, tgt_mask=mask)  # BS x V x hs
+        x = self.decoder_stack(x, conditional, tgt_mask=mask)  # BS x V x hs
 
         # Classification head
         x = self.output_mlp(x)
@@ -103,20 +127,20 @@ class TransformerAutoregressor(BaseNetwork):
     def _step(self, batch: torch.Tensor, batch_idx: torch.Tensor):
         assert self.loss_obj is not None, "For training, there must be a loss object."
 
-        slices, indices, track_idx = (
-            batch["music slices"],
+        slices, indices, prev_seq = (
+            batch["music slice"],
             batch["latent indices"],
-            batch["track index"],
+            batch["back conditional slice"],
         )
         mask_prob = (
-            torch.zeros((slices.shape[0], slices.shape[1], slices.shape[1])).to(
+            torch.zeros((slices.shape[0], slices.shape[2], slices.shape[2])).to(
                 self.device
             )
             + self.masking_prob
         )
-        track_idx = track_idx.unsqueeze(-1)
+
         mask = torch.bernoulli(mask_prob).to(self.device)
-        outputs = self(slices, track_idx, mask)
+        outputs = self(slices.transpose(1, 2), prev_seq.transpose(1, 2), mask)
         targets = {"latent indices": indices}
 
         outputs.update(self.loss_obj(outputs, targets))
@@ -127,21 +151,25 @@ class TransformerAutoregressor(BaseNetwork):
         outputs = self._step(batch, batch_idx)
         for key, value in outputs.items():
             if "loss" in key:
-                self.log(key, value)
+                prog_bar = True if key == "total_loss" else False
+                displayed_key = key.replace("_", " ")
+                self.log("Training " + displayed_key, value, prog_bar=prog_bar)
         return outputs["total_loss"]
 
     def validation_step(self, batch: torch.Tensor, batch_idx: torch.Tensor):
         outputs = self._step(batch, batch_idx)
         for key, value in outputs.items():
             if "loss" in key:
-                self.log(key + "_val", value)
+                prog_bar = True if key == "total_loss" else False
+                displayed_key = key.replace("_", " ")
+                self.log("Validation " + displayed_key, value, prog_bar=prog_bar)
 
     def generate_sequence(
         self,
         preliminary_seq: torch.Tensor,
         preliminary_mask: torch.Tensor = None,
         temperature: float = 1.0,
-        song_idx: torch.Tensor = None,
+        prev_slice: torch.Tensor = None,
     ) -> Dict[str, torch.Tensor]:
         seq_length = preliminary_seq.shape[1]
         current_sequence = preliminary_seq.clone()
@@ -151,8 +179,8 @@ class TransformerAutoregressor(BaseNetwork):
         for seq_idx in tqdm.tqdm(range(seq_length - 1), "Creating latent sequence..."):
             if current_mask is None or not current_mask[0, seq_idx]:
                 output_logits = self(
-                    current_sequence, song_idx=song_idx, mask=current_mask
-                )[:, seq_idx + 1]
+                    current_sequence, prev_slice=prev_slice, mask=current_mask
+                )[:, seq_idx + 1, :]
                 sampled_codes = self._sample_codes(output_logits, temperature)
                 current_sequence[:, seq_idx + 1, :] = sampled_codes
             if current_mask is not None:
