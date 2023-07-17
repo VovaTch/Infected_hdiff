@@ -114,7 +114,11 @@ class TransformerAutoregressor(BaseNetwork):
         x += positional_emb
 
         # Activate transformer
-        x = self.decoder_stack(x, conditional, tgt_mask=mask)  # BS x V x hs
+        x = self.decoder_stack(
+            x.transpose(0, 1), conditional.transpose(0, 1), tgt_mask=mask
+        ).transpose(
+            0, 1
+        )  # BS x V x hs
 
         # Classification head
         x = self.output_mlp(x)
@@ -133,9 +137,9 @@ class TransformerAutoregressor(BaseNetwork):
             batch["back conditional slice"],
         )
         mask_prob = (
-            torch.zeros((slices.shape[0], slices.shape[2], slices.shape[2])).to(
-                self.device
-            )
+            torch.zeros(
+                (slices.shape[0] * self.num_heads, slices.shape[2], slices.shape[2])
+            ).to(self.device)
             + self.masking_prob
         )
 
