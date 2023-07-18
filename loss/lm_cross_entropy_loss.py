@@ -31,4 +31,4 @@ class DecoderCrossEntropy(LossBase):
         """
         logits = x["logits"][:-1]
         target_indices = x_target["latent indices"][1:]
-        return self.cel_loss(logits, target_indices)
+        return self.cel_loss(logits.transpose(1, 2), target_indices.long())

@@ -1,4 +1,5 @@
 from typing import Dict, Any, Optional, List
+import random
 
 import pytorch_lightning as pl
 from pytorch_lightning.utilities.types import STEP_OUTPUT
@@ -23,6 +24,7 @@ class TransformerAutoregressor(BaseNetwork):
         input_channels: int = 8,
         masking_prob: float = 0.25,
         loss_obj: TotalLoss = None,
+        conditional_off_prob: float = 0.3,
         **kwargs,
     ) -> pl.LightningModule:
         super().__init__(**kwargs)
@@ -36,6 +38,7 @@ class TransformerAutoregressor(BaseNetwork):
         self.masking_prob = masking_prob
         self.loss_obj = loss_obj
         self.codebook = codebook
+        self.conditional_off_prob = conditional_off_prob
 
         # Initialize decoder-only transformer
         self.decoder_layer = nn.TransformerDecoderLayer(
@@ -51,7 +54,7 @@ class TransformerAutoregressor(BaseNetwork):
         )
 
         # Empty embedding
-        self.empty_embedding = nn.Parameter(torch.randn((1, input_channels, 512)))
+        self.empty_embedding = nn.Parameter(torch.randn((1, 512, input_channels)))
 
         # Positional encoding
         self.positional_encoding = SinusoidalPositionEmbeddings(self.hidden_size)
@@ -126,9 +129,7 @@ class TransformerAutoregressor(BaseNetwork):
         x += positional_emb
 
         # Activate transformer
-        x = self.decoder_stack(x, conditional, tgt_mask=mask).transpose(
-            0, 1
-        )  # BS x V x hs
+        x = self.decoder_stack(x, conditional, tgt_mask=mask)  # BS x V x hs
 
         # Classification head
         x = self.output_mlp(x)
@@ -152,17 +153,20 @@ class TransformerAutoregressor(BaseNetwork):
         slices, indices, prev_seq = (
             batch["music slice"],
             batch["latent indices"],
-            batch["back conditional slice"],
+            batch["back conditional slice"].transpose(1, 2),
         )
         mask_prob = (
-            torch.zeros((slices.shape[0], slices.shape[1], slices.shape[1]))
+            torch.zeros((slices.shape[0], slices.shape[2], slices.shape[2]))
             .to(self.device)
             .repeat((self.num_heads, 1, 1))
             + self.masking_prob
         )
 
+        if random.random() < self.conditional_off_prob:
+            prev_seq = None
+
         mask = torch.bernoulli(mask_prob).to(self.device)
-        outputs = self(slices.transpose(1, 2), prev_seq.transpose(1, 2), mask)
+        outputs = self(slices.transpose(1, 2), prev_seq, mask)
         targets = {"latent indices": indices}
 
         outputs.update(self.loss_obj(outputs, targets))
@@ -238,5 +242,6 @@ class TransformerAutoregressor(BaseNetwork):
         """
         categorical_dist = torch.distributions.Categorical(logits=logits / temperature)
         samples = categorical_dist.sample()
-        sampled_codes = self.codebook.vq_codebook.code_embedding[samples]
+        with torch.no_grad():
+            sampled_codes = self.codebook.vq_codebook.code_embedding[samples]
         return sampled_codes

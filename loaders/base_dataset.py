@@ -213,14 +213,16 @@ class BaseLatentLoader(Dataset):
         if self.generative:
             if idx == 0:
                 back_cond_slice = torch.zeros_like(slice.to(self.device))
-                back_cond_indices = -1
+                back_cond_indices = torch.zeros_like(slice[0, :].to(self.device)) - 1
             else:
                 back_cond_slice = self.processed_slice_data[idx - 1].to(self.device)
                 back_cond_indices = self.processed_index_data[idx - 1].to(self.device)
 
             if idx == self.__len__() - 1:
                 forward_cond_slice = torch.zeros_like(slice.to(self.device))
-                forward_cond_indices = -1
+                forward_cond_indices = (
+                    torch.zeros_like(back_cond_indices.to(self.device)) - 1
+                )
             else:
                 forward_cond_slice = self.processed_slice_data[idx + 1].to(self.device)
                 forward_cond_indices = self.processed_index_data[idx - 1].to(
