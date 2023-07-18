@@ -138,8 +138,16 @@ class TransformerAutoregressor(BaseNetwork):
 
         return output
 
-    def _step(self, batch: torch.Tensor, batch_idx: torch.Tensor):
+    def _step(
+        self, batch: torch.Tensor, batch_idx: torch.Tensor
+    ) -> Dict[str, torch.Tensor]:
         assert self.loss_obj is not None, "For training, there must be a loss object."
+        """
+        Internal inference step procedure, used in the lightning module required methods.
+
+        Returns:
+            Dict[str, torch.Tensor]: Output dictionary, contains logits from the seq output.
+        """
 
         slices, indices, prev_seq = (
             batch["music slice"],
@@ -161,7 +169,9 @@ class TransformerAutoregressor(BaseNetwork):
 
         return outputs
 
-    def training_step(self, batch: torch.Tensor, batch_idx: torch.Tensor):
+    def training_step(
+        self, batch: torch.Tensor, batch_idx: torch.Tensor
+    ) -> torch.Tensor:
         outputs = self._step(batch, batch_idx)
         for key, value in outputs.items():
             if "loss" in key:
@@ -185,6 +195,19 @@ class TransformerAutoregressor(BaseNetwork):
         temperature: float = 1.0,
         prev_slice: torch.Tensor = None,
     ) -> Dict[str, torch.Tensor]:
+        """
+        Given preliminary sequence and attention masks that determine the generated sequence size, produces
+        a sampled generated sequence of latent codes. Can be conditioned on the previous sequence.
+
+        Args:
+            preliminary_seq (torch.Tensor): _description_
+            preliminary_mask (torch.Tensor, optional): _description_. Defaults to None.
+            temperature (float, optional): _description_. Defaults to 1.0.
+            prev_slice (torch.Tensor, optional): _description_. Defaults to None.
+
+        Returns:
+            Dict[str, torch.Tensor]: _description_
+        """
         seq_length = preliminary_seq.shape[1]
         current_sequence = preliminary_seq.clone()
         current_mask = (
@@ -203,6 +226,16 @@ class TransformerAutoregressor(BaseNetwork):
         return {"sequence": current_sequence}
 
     def _sample_codes(self, logits: torch.Tensor, temperature: float) -> torch.Tensor:
+        """
+        Samples latent codes given transformer output logits and temperature.
+
+        Args:
+            logits (torch.Tensor): Transformer output logits, size BS x V x code_size
+            temperature (float): Temperature parameter for sampling, 0 is greedy, 1 is standard, 1<< is uniform.
+
+        Returns:
+            torch.Tensor: _description_
+        """
         categorical_dist = torch.distributions.Categorical(logits=logits / temperature)
         samples = categorical_dist.sample()
         sampled_codes = self.codebook.vq_codebook.code_embedding[samples]
