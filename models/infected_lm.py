@@ -20,7 +20,6 @@ class TransformerAutoregressor(BaseNetwork):
         num_heads: int = 4,
         num_modules: int = 6,
         hidden_size: int = 256,
-        codebook_size: int = 1024,
         input_channels: int = 8,
         masking_prob: float = 0.25,
         loss_obj: TotalLoss = None,
@@ -33,7 +32,7 @@ class TransformerAutoregressor(BaseNetwork):
         self.num_modules = num_modules
         self.hidden_size = hidden_size
         self.input_channels = input_channels
-        self.codebook_size = codebook_size
+        self.codebook_size = codebook.vq_codebook.num_tokens
         self.masking_prob = masking_prob
         self.loss_obj = loss_obj
         self.codebook = codebook
@@ -64,7 +63,7 @@ class TransformerAutoregressor(BaseNetwork):
             nn.GELU(),
             nn.Linear(hidden_size, hidden_size),
             nn.GELU(),
-            nn.Linear(hidden_size, codebook_size),
+            nn.Linear(hidden_size, self.codebook_size),
         )
 
     def forward(
