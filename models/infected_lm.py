@@ -40,7 +40,12 @@ class TransformerAutoregressor(BaseNetwork):
 
         # Initialize decoder-only transformer
         self.decoder_layer = nn.TransformerDecoderLayer(
-            hidden_size, num_heads, dropout=0.0, activation="gelu", norm_first=True
+            hidden_size,
+            num_heads,
+            dropout=0.0,
+            activation="gelu",
+            norm_first=True,
+            batch_first=True,
         )
         self.decoder_stack = nn.TransformerDecoder(
             self.decoder_layer, num_layers=num_modules
@@ -69,12 +74,20 @@ class TransformerAutoregressor(BaseNetwork):
         mask: torch.Tensor = None,
     ) -> Dict[str, Any]:
         """
-        Forward method; assumes x in the shape of BS x V x in_dim, assumes song idx in the shape of BS x n_songs.
-        Assumes empty index is -1, as the song_idx tensor must be a tensor. Mask in the shape of BS x V x V
+        Forward method; passes the inputs and conditionals through the decoder-only transformer and
+        produces logits for each query.
 
         Args:
-            x (torch.Tensor): _description_
-            song_idx (torch.Tensor, optional): _description_. Defaults to None.
+            x (torch.Tensor): Size BS x V x ldim, tensor input to the transformer decoder.
+            prev_seq (List[torch.Tensor] | torch.Tensor, optional): Size BS x V x ldim Previous sequence that is used
+            for conditional input, supports either a torch tensor or a list of torch tensors. Defaults to None.
+            mask (torch.Tensor, optional): Size BS x V x V, attention mask for the decoder queries. Defaults to None.
+
+        Raises:
+            Exception: Unknown type for the previous sequence
+
+        Returns:
+            Dict[str, Any]: A dictionary the contains a Tensor
         """
 
         # If the conditional is empty
@@ -114,9 +127,7 @@ class TransformerAutoregressor(BaseNetwork):
         x += positional_emb
 
         # Activate transformer
-        x = self.decoder_stack(
-            x.transpose(0, 1), conditional.transpose(0, 1), tgt_mask=mask
-        ).transpose(
+        x = self.decoder_stack(x, conditional, tgt_mask=mask).transpose(
             0, 1
         )  # BS x V x hs
 
@@ -137,9 +148,9 @@ class TransformerAutoregressor(BaseNetwork):
             batch["back conditional slice"],
         )
         mask_prob = (
-            torch.zeros(
-                (slices.shape[0] * self.num_heads, slices.shape[2], slices.shape[2])
-            ).to(self.device)
+            torch.zeros((slices.shape[0], slices.shape[1], slices.shape[1]))
+            .to(self.device)
+            .repeat((self.num_heads, 1, 1))
             + self.masking_prob
         )
 
