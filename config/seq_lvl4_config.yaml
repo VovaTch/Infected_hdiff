@@ -1,0 +1,36 @@
+model:
+  name: lvl4_seq
+  sample_rate: 44100
+  slice_time: 0.7430386 # Length of slice to get 2^15 samples
+  amp: False
+  num_heads: 4
+  num_modules: 6
+  hidden_size: 512
+  input_channels: 8
+  masking_prob: 0.5
+  vqvae_config: 'config/lvl4_config.yaml'
+  weights_path: 'model_weights/lvl4_vqvae.ckpt'
+
+
+learning:
+  batch_size: 6
+  learning_rate: 0.0001
+  weight_decay: 0.0001
+  epochs: 40000
+  gradient_clip: 0.5
+  beta_ema: 0.9999
+  monitored_loss: Validation total loss
+  dataset_path: data/music_samples/
+  scheduler_type: 'none'
+  dataset_name: 'music_slice_dataset'
+  eval_split_factor: 0.01
+  preload_data_file_path: 'data/music_samples/004-datatensor_gen.pt'
+  preload_metadata_file_path: 'data/music_samples/004-metadata_gen.pkl'
+  slice_length: 4096
+  generative: True
+
+
+loss:
+
+  decoderCE:
+    weight: 1.0

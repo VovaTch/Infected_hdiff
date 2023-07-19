@@ -25,6 +25,7 @@ class TransformerAutoregressor(BaseNetwork):
         masking_prob: float = 0.25,
         loss_obj: TotalLoss = None,
         conditional_off_prob: float = 0.3,
+        skip_constant: int = 16384,
         **kwargs,
     ) -> pl.LightningModule:
         super().__init__(**kwargs)
@@ -39,6 +40,7 @@ class TransformerAutoregressor(BaseNetwork):
         self.loss_obj = loss_obj
         self.codebook = codebook
         self.conditional_off_prob = conditional_off_prob
+        self.skip_constant = skip_constant
 
         # Initialize decoder-only transformer
         self.decoder_layer = nn.TransformerDecoderLayer(
@@ -61,6 +63,7 @@ class TransformerAutoregressor(BaseNetwork):
 
         # Fully connected layers
         self.input_fc = nn.Linear(input_channels, hidden_size)
+        self.input_fc_cond = nn.Linear(input_channels, hidden_size)
         self.output_mlp = nn.Sequential(
             nn.Linear(hidden_size, hidden_size),
             nn.GELU(),
@@ -96,8 +99,9 @@ class TransformerAutoregressor(BaseNetwork):
         if prev_seq is None:
             prev_seq = self.empty_embedding.repeat((x.shape[0], 1, 1))
             conditional = self.input_fc(prev_seq)
-            positional_emb_idx = torch.arange(0, self.empty_embedding.shape[1]).to(
-                self.device
+            positional_emb_idx = (
+                torch.arange(0, self.empty_embedding.shape[1]).to(self.device)
+                + self.skip_constant
             )
             positional_emb = self.positional_encoding(positional_emb_idx)
             conditional += positional_emb
@@ -105,17 +109,22 @@ class TransformerAutoregressor(BaseNetwork):
         # If the conditional is a list
         elif isinstance(prev_seq, List):
             conditional = torch.zeros((x.shape[0], 0, x.shape[2])).to(self.device)
-            for ind_seq in prev_seq:
-                ind_cond = self.input_fc(ind_seq)
-                positional_emb_idx = torch.arange(0, ind_seq.shape[1]).to(self.device)
+            for seq_serial_num, ind_seq in enumerate(prev_seq):
+                ind_cond = self.input_fc_cond(ind_seq)
+                # This is designed to have a separate pos embedding
+                positional_emb_idx = torch.arange(0, ind_seq.shape[1]).to(
+                    self.device
+                ) + self.skip_constant * (seq_serial_num + 1)
                 positional_emb = self.positional_encoding(positional_emb_idx)
                 ind_cond += positional_emb
                 conditional = torch.cat((conditional, ind_cond), dim=1)
 
         # If the conditional is a tensor
         elif isinstance(prev_seq, torch.Tensor):
-            conditional = self.input_fc(prev_seq)
-            positional_emb_idx = torch.arange(0, prev_seq.shape[1]).to(self.device)
+            conditional = self.input_fc_cond(prev_seq)
+            positional_emb_idx = (
+                torch.arange(0, prev_seq.shape[1]).to(self.device) + self.skip_constant
+            )
             positional_emb = self.positional_encoding(positional_emb_idx)
             conditional += positional_emb
 

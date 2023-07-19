@@ -240,6 +240,9 @@ def main(args):
     elif choice == "lvl1seq":
         train_seq(args, level=1)
 
+    elif choice == "lvl4seq":
+        train_seq(args, level=4)
+
     elif choice == "denoiser":
         train_denoiser(args)
 
@@ -269,6 +272,7 @@ if __name__ == "__main__":
             "lvl3diff",
             "lvl4diff",
             "lvl1seq",
+            "lvl4seq",
             "lvl1tvqvae",
             "denoiser",
             "denoiser_diff",
