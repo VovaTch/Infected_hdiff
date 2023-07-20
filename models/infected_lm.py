@@ -26,6 +26,7 @@ class TransformerAutoregressor(BaseNetwork):
         loss_obj: TotalLoss = None,
         conditional_off_prob: float = 0.3,
         skip_constant: int = 16384,
+        gen_sequence_len: int = 512,
         **kwargs,
     ) -> pl.LightningModule:
         super().__init__(**kwargs)
@@ -41,6 +42,7 @@ class TransformerAutoregressor(BaseNetwork):
         self.codebook = codebook
         self.conditional_off_prob = conditional_off_prob
         self.skip_constant = skip_constant
+        self.gen_sequence_len = gen_sequence_len
 
         # Initialize decoder-only transformer
         self.decoder_layer = nn.TransformerDecoderLayer(
@@ -174,7 +176,11 @@ class TransformerAutoregressor(BaseNetwork):
         if random.random() < self.conditional_off_prob:
             prev_seq = None
 
-        mask = torch.bernoulli(mask_prob).to(self.device)
+        # Zero the beginning to have it conditional only on the conditionals and not the token
+        slices[:, :, 0] = 0
+
+        # mask = torch.bernoulli(mask_prob).to(self.device)
+        mask = torch.zeros_like(mask_prob) + torch.tril(torch.ones_like(mask_prob))
         outputs = self(slices.transpose(1, 2), prev_seq, mask)
         targets = {"latent indices": indices}
 
@@ -203,10 +209,8 @@ class TransformerAutoregressor(BaseNetwork):
 
     def generate_sequence(
         self,
-        preliminary_seq: torch.Tensor,
-        preliminary_mask: torch.Tensor = None,
         temperature: float = 1.0,
-        prev_slice: torch.Tensor = None,
+        prev_conditionals: torch.Tensor or List[torch.Tensor] = None,
     ) -> Dict[str, torch.Tensor]:
         """
         Given preliminary sequence and attention masks that determine the generated sequence size, produces
@@ -221,20 +225,15 @@ class TransformerAutoregressor(BaseNetwork):
         Returns:
             Dict[str, torch.Tensor]: _description_
         """
-        seq_length = preliminary_seq.shape[1]
-        current_sequence = preliminary_seq.clone()
-        current_mask = (
-            preliminary_mask.clone() if preliminary_mask is not None else None
-        )
-        for seq_idx in tqdm.tqdm(range(seq_length - 1), "Creating latent sequence..."):
-            if current_mask is None or not current_mask[0, seq_idx]:
-                output_logits = self(
-                    current_sequence, prev_slice=prev_slice, mask=current_mask
-                )[:, seq_idx + 1, :]
-                sampled_codes = self._sample_codes(output_logits, temperature)
-                current_sequence[:, seq_idx + 1, :] = sampled_codes
-            if current_mask is not None:
-                current_mask[:, seq_idx + 1] = True
+
+        current_sequence = torch.zeros((1, 1, self.input_channels)).to(self.device)
+        seq_length = self.gen_sequence_len
+        for _ in tqdm.tqdm(range(seq_length - 1), "Creating latent sequence..."):
+            output_logits = self(current_sequence, prev_slice=prev_conditionals)[
+                :, -1, :
+            ]
+            sampled_codes = self._sample_codes(output_logits, temperature)
+            current_sequence = torch.cat((current_sequence, sampled_codes), dim=1)
 
         return {"sequence": current_sequence}
 
